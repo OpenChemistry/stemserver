@@ -14,7 +14,7 @@ services:
       - SETGID
       - NET_BIND_SERVICE
     ports:
-          - 5000:5000
+          - 50049:5000
 
   web-nginx:
     image: openchemistry/stemclient:latest
@@ -35,5 +35,5 @@ services:
     depends_on:
       - app-flask
     ports:
-          - 80:80
+          - 60048:80
 
