@@ -23,6 +23,9 @@ def dark(data):
 def subscribe(topic):
     join_room(topic)
 
+@socketio.on('stem.size', namespace='/stem')
+def size(data):
+    emit('stem.size', data, broadcast=True, include_self=False)
 
 @socketio.on('disconnect', namespace='/stem')
 def disconnect():
