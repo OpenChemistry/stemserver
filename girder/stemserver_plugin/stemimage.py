@@ -16,6 +16,7 @@ class StemImage(Resource):
         super(StemImage, self).__init__()
         self.resourceName = 'stem_image'
         self.route('GET', (), self.get)
+        self.route('GET', (':id', 'dark'), self.dark)
         self.route('POST', (), self.post)
         self.route('DELETE', (':id',), self.delete)
 
@@ -37,6 +38,14 @@ class StemImage(Resource):
         # Filter based upon access level.
         user = getCurrentUser()
         return [self._clean(self._model.filter(x, user)) for x in stem_images]
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get the dark field of a stem image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def dark(self, id):
+        return self._model.dark(id, getCurrentUser())
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

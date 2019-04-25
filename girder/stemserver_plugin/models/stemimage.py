@@ -3,6 +3,7 @@ from girder.constants import AccessType
 from girder.models.file import File as FileModel
 from girder.models.model_base import AccessControlledModel
 
+import h5py
 
 class StemImage(AccessControlledModel):
 
@@ -51,3 +52,18 @@ class StemImage(AccessControlledModel):
             self.setPublic(stem_image, True)
 
         return self.save(stem_image)
+
+    def dark(self, id, user):
+        stem_image = self.load(id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', code=404)
+
+        if 'fileId' not in stem_image:
+            raise RestExcpetion('StemImage does not have a fileId.', code=400)
+
+        file = FileModel().load(stem_image['fileId'], level=AccessType.READ)
+        fo = FileModel().open(file)
+
+        with h5py.File(fo, 'r') as f:
+            return f['/stem/dark'].value
