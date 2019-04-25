@@ -1,6 +1,7 @@
-from girder.models.model_base import AccessControlledModel
-from girder.constants import AccessType
 from girder.api.rest import RestException
+from girder.constants import AccessType
+from girder.models.file import File as FileModel
+from girder.models.model_base import AccessControlledModel
 
 
 class StemImage(AccessControlledModel):
@@ -25,7 +26,8 @@ class StemImage(AccessControlledModel):
     def validate(self, doc):
         # Ensure the fileId or filePath are valid
         if 'fileId' in doc:
-            pass
+            file = FileModel().load(doc['fileId'], force=True)
+            doc['fileId'] = file['_id']
         elif 'filePath' in doc:
             pass
         else:
