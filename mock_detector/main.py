@@ -23,6 +23,9 @@ async def job(i, n, values, client):
             'indexes': pixel_indices.tobytes()
         }
     }
+    client.emit('stem.dark', message, namespace='/stem')
+
+    message['data']['values'] = (pixels * -1.0).tobytes()
     client.emit('stem.bright', message, namespace='/stem')
 
 async def main(url, n):
@@ -59,4 +62,3 @@ if __name__ == '__main__':
     url = sys.argv[1]
     n = int(sys.argv[2])
     asyncio.run(main(url, n))
-
