@@ -53,7 +53,7 @@ class StemImage(AccessControlledModel):
 
         return self.save(stem_image)
 
-    def dark(self, id, user):
+    def _get_h5_dataset(self, id, user, path):
         stem_image = self.load(id, user=user, level=AccessType.READ)
 
         if not stem_image:
@@ -66,4 +66,10 @@ class StemImage(AccessControlledModel):
         fo = FileModel().open(file)
 
         with h5py.File(fo, 'r') as f:
-            return f['/stem/dark'].value
+            return f[path].value
+
+    def bright(self, id, user):
+        return self._get_h5_dataset(id, user, '/stem/bright')
+
+    def dark(self, id, user):
+        return self._get_h5_dataset(id, user, '/stem/dark')
