@@ -26,7 +26,7 @@ class StemImage(AccessControlledModel):
     def validate(self, doc):
         # Ensure the fileId or filePath are valid
         if 'fileId' in doc:
-            file = FileModel().load(doc['fileId'], force=True)
+            file = FileModel().load(doc['fileId'], level=AccessType.READ)
             doc['fileId'] = file['_id']
         elif 'filePath' in doc:
             pass
@@ -37,7 +37,6 @@ class StemImage(AccessControlledModel):
         return doc
 
     def create(self, user, fileId=None, filePath=None, public=False):
-
         stem_image = {}
         if fileId:
             stem_image['fileId'] = fileId
