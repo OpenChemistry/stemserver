@@ -38,7 +38,7 @@ setup(
     zip_safe=False,
     entry_points={
         'girder.plugin': [
-            'stem = stemserver_plugin:GirderPlugin'
+            'stem = stemserver_plugin:StemPlugin'
         ]
     }
 )
