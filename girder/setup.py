@@ -11,14 +11,12 @@ requirements = [
 ]
 
 setup(
-    author="Patrick Avery",
-    author_email='patrick.avery@kitware.com',
+    author="Kitware",
+    author_email='kitware@kitware.com',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
-        'License :: OSI Approved :: Apache Software License',
+        'License :: OSI Approved :: 3-Clause BSD',
         'Natural Language :: English',
-        "Programming Language :: Python :: 2",
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
@@ -26,7 +24,7 @@ setup(
     ],
     description='Endpoints for STEM operations.',
     install_requires=requirements,
-    license='Apache Software License 2.0',
+    license='3-Clause BSD',
     long_description=readme,
     long_description_content_type='text/x-rst',
     include_package_data=True,
