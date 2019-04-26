@@ -91,7 +91,7 @@ class StemImage(AccessControlledModel):
                 dataset.read_direct(array,
                                     source_sel=np.s_[start:end])
                 total_read += read_size
-                yield array
+                yield array.tobytes()
 
     def bright(self, id, user):
         setResponseHeader('Content-Type', 'application/octet-stream')
