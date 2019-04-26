@@ -1,10 +1,12 @@
+import os
+
+import h5py
+import numpy as np
+
 from girder.api.rest import setResponseHeader, RestException
 from girder.constants import AccessType
 from girder.models.file import File as FileModel
 from girder.models.model_base import AccessControlledModel
-
-import h5py
-import numpy as np
 
 class StemImage(AccessControlledModel):
 
@@ -31,7 +33,9 @@ class StemImage(AccessControlledModel):
             file = FileModel().load(doc['fileId'], level=AccessType.READ)
             doc['fileId'] = file['_id']
         elif 'filePath' in doc:
-            pass
+            if not os.path.isfile(doc['filePath']):
+                msg = 'File does not exist: ' + doc['filePath']
+                raise RestException(msg, code=400)
         else:
             raise RestException('Neither fileId nor filePath are set',
                                 code=400)
@@ -60,14 +64,18 @@ class StemImage(AccessControlledModel):
         if not stem_image:
             raise RestException('StemImage not found.', code=404)
 
-        if 'fileId' not in stem_image:
-            raise RestExcpetion('StemImage does not have a fileId.', code=400)
-
-        file = FileModel().load(stem_image['fileId'], level=AccessType.READ)
-        fo = FileModel().open(file)
+        if 'fileId' in stem_image:
+            girder_file = FileModel().load(stem_image['fileId'],
+                                           level=AccessType.READ)
+            f = FileModel().open(girder_file)
+        elif 'filePath' in stem_image:
+            f = stem_image['filePath']
+        else:
+            raise RestException('StemImage does not contain `fileId` nor '
+                                '`filePath`.', code=400)
 
         read_size = 10
-        with h5py.File(fo, 'r') as f:
+        with h5py.File(f, 'r') as f:
             dataset = f[path]
             total_read = 0
             while total_read != dataset.shape[0]:
