@@ -15,10 +15,10 @@ class StemImage(Resource):
     def __init__(self):
         super(StemImage, self).__init__()
         self.resourceName = 'stem_image'
-        self.route('GET', (), self.get)
+        self.route('GET', (), self.find)
         self.route('GET', (':id', 'bright'), self.bright)
         self.route('GET', (':id', 'dark'), self.dark)
-        self.route('POST', (), self.post)
+        self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
         self._model = StemImageModel()
@@ -33,14 +33,14 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get stem images')
     )
-    def get(self, params):
+    def find(self, params):
         stem_images = self._model.find()
 
         # Filter based upon access level.
         user = getCurrentUser()
         return [self._clean(self._model.filter(x, user)) for x in stem_images]
 
-    @access.public
+    @access.user
     @autoDescribeRoute(
         Description('Get the bright field of a stem image.')
         .param('id', 'The id of the stem image.')
@@ -48,7 +48,7 @@ class StemImage(Resource):
     def bright(self, id):
         return self._model.bright(id, getCurrentUser())
 
-    @access.public
+    @access.user
     @autoDescribeRoute(
         Description('Get the dark field of a stem image.')
         .param('id', 'The id of the stem image.')
@@ -62,7 +62,7 @@ class StemImage(Resource):
         .param('fileId', 'The file id of the image.', required=False)
         .param('filePath', 'The file path to the image.', required=False)
     )
-    def post(self, params):
+    def create(self, params):
         user = getCurrentUser()
         fileId = params.get('fileId')
         filePath = params.get('filePath')
