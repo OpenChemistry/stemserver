@@ -7,7 +7,9 @@ with open('README.rst') as readme_file:
     readme = readme_file.read()
 
 requirements = [
-    'girder>=3.0.0a1'
+    'girder>=3.0.0a1',
+    'h5py>=2.9.0',
+    'numpy>=1.7'
 ]
 
 setup(
