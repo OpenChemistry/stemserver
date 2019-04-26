@@ -1,9 +1,10 @@
-from girder.api.rest import RestException
+from girder.api.rest import setResponseHeader, RestException
 from girder.constants import AccessType
 from girder.models.file import File as FileModel
 from girder.models.model_base import AccessControlledModel
 
 import h5py
+import numpy as np
 
 class StemImage(AccessControlledModel):
 
@@ -65,11 +66,29 @@ class StemImage(AccessControlledModel):
         file = FileModel().load(stem_image['fileId'], level=AccessType.READ)
         fo = FileModel().open(file)
 
+        read_size = 10
         with h5py.File(fo, 'r') as f:
-            return f[path].value
+            dataset = f[path]
+            total_read = 0
+            while total_read != dataset.shape[0]:
+                if total_read + read_size > dataset.shape[0]:
+                    read_size = dataset.shape[0] - total_read
+
+                shape = (read_size,) + dataset.shape[1:]
+                array = np.empty(shape, dtype=dataset.dtype)
+
+                start = total_read
+                end = start + read_size
+
+                dataset.read_direct(array,
+                                    source_sel=np.s_[start:end])
+                total_read += read_size
+                yield array
 
     def bright(self, id, user):
+        setResponseHeader('Content-Type', 'application/octet-stream')
         return self._get_h5_dataset(id, user, '/stem/bright')
 
     def dark(self, id, user):
+        setResponseHeader('Content-Type', 'application/octet-stream')
         return self._get_h5_dataset(id, user, '/stem/dark')
