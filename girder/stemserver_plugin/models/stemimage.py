@@ -74,24 +74,28 @@ class StemImage(AccessControlledModel):
             raise RestException('StemImage does not contain `fileId` nor '
                                 '`filePath`.', code=400)
 
-        read_size = 10
-        with h5py.File(f, 'r') as f:
-            dataset = f[path]
-            total_read = 0
-            while total_read != dataset.shape[0]:
-                if total_read + read_size > dataset.shape[0]:
-                    read_size = dataset.shape[0] - total_read
+        def _stream():
+            nonlocal f
+            read_size = 10
+            with h5py.File(f, 'r') as f:
+                dataset = f[path]
+                total_read = 0
+                while total_read != dataset.shape[0]:
+                    if total_read + read_size > dataset.shape[0]:
+                        read_size = dataset.shape[0] - total_read
 
-                shape = (read_size,) + dataset.shape[1:]
-                array = np.empty(shape, dtype=dataset.dtype)
+                    shape = (read_size,) + dataset.shape[1:]
+                    array = np.empty(shape, dtype=dataset.dtype)
 
-                start = total_read
-                end = start + read_size
+                    start = total_read
+                    end = start + read_size
 
-                dataset.read_direct(array,
-                                    source_sel=np.s_[start:end])
-                total_read += read_size
-                yield array.tobytes()
+                    dataset.read_direct(array,
+                                        source_sel=np.s_[start:end])
+                    total_read += read_size
+                    yield array.tobytes()
+
+        return _stream
 
     def bright(self, id, user):
         setResponseHeader('Content-Type', 'application/octet-stream')
