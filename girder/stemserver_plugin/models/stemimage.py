@@ -8,6 +8,7 @@ from girder.constants import AccessType
 from girder.models.file import File as FileModel
 from girder.models.model_base import AccessControlledModel
 
+
 class StemImage(AccessControlledModel):
 
     def __init__(self):
@@ -74,11 +75,13 @@ class StemImage(AccessControlledModel):
             raise RestException('StemImage does not contain `fileId` nor '
                                 '`filePath`.', code=400)
 
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
         def _stream():
             nonlocal f
-            read_size = 10
             with h5py.File(f, 'r') as f:
                 dataset = f[path]
+                read_size = 10
                 total_read = 0
                 while total_read != dataset.shape[0]:
                     if total_read + read_size > dataset.shape[0]:
@@ -90,17 +93,14 @@ class StemImage(AccessControlledModel):
                     start = total_read
                     end = start + read_size
 
-                    dataset.read_direct(array,
-                                        source_sel=np.s_[start:end])
+                    dataset.read_direct(array, source_sel=np.s_[start:end])
                     total_read += read_size
                     yield array.tobytes()
 
         return _stream
 
     def bright(self, id, user):
-        setResponseHeader('Content-Type', 'application/octet-stream')
         return self._get_h5_dataset(id, user, '/stem/bright')
 
     def dark(self, id, user):
-        setResponseHeader('Content-Type', 'application/octet-stream')
         return self._get_h5_dataset(id, user, '/stem/dark')
