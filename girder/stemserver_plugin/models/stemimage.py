@@ -59,21 +59,30 @@ class StemImage(AccessControlledModel):
 
         return self.save(stem_image)
 
+    def _get_file(self, stem_image):
+        """Get the file object or file path of the stem image.
+
+        If there is a fileId in stem_image, returns a file object.
+        If there is a filePath in stem_image, returns the path.
+
+        """
+        if 'fileId' in stem_image:
+            girder_file = FileModel().load(stem_image['fileId'],
+                                           level=AccessType.READ)
+            return FileModel().open(girder_file)
+        elif 'filePath' in stem_image:
+            return stem_image['filePath']
+
+        raise RestException('StemImage does not contain `fileId` nor '
+                            '`filePath`.', code=400)
+
     def _get_h5_dataset(self, id, user, path):
         stem_image = self.load(id, user=user, level=AccessType.READ)
 
         if not stem_image:
             raise RestException('StemImage not found.', code=404)
 
-        if 'fileId' in stem_image:
-            girder_file = FileModel().load(stem_image['fileId'],
-                                           level=AccessType.READ)
-            f = FileModel().open(girder_file)
-        elif 'filePath' in stem_image:
-            f = stem_image['filePath']
-        else:
-            raise RestException('StemImage does not contain `fileId` nor '
-                                '`filePath`.', code=400)
+        f = self._get_file(stem_image)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -104,3 +113,20 @@ class StemImage(AccessControlledModel):
 
     def dark(self, id, user):
         return self._get_h5_dataset(id, user, '/stem/dark')
+
+    def _get_h5_dataset_shape(self, id, user, path):
+        stem_image = self.load(id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', code=404)
+
+        f = self._get_file(stem_image)
+
+        with h5py.File(f, 'r') as f:
+            return f[path].shape
+
+    def bright_shape(self, id, user):
+        return self._get_h5_dataset_shape(id, user, '/stem/bright')
+
+    def dark_shape(self, id, user):
+        return self._get_h5_dataset_shape(id, user, '/stem/dark')

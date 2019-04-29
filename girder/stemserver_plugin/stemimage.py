@@ -19,6 +19,8 @@ class StemImage(Resource):
         self.route('GET', (), self.find)
         self.route('GET', (':id', 'bright'), self.bright)
         self.route('GET', (':id', 'dark'), self.dark)
+        self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
+        self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
@@ -56,6 +58,22 @@ class StemImage(Resource):
     )
     def dark(self, id):
         return self._model.dark(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the shape of the bright field of a stem image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def bright_shape(self, id):
+        return self._model.bright_shape(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the shape of the dark field of a stem image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def dark_shape(self, id):
+        return self._model.dark_shape(id, getCurrentUser())
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
