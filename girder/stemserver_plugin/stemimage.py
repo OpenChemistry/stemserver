@@ -73,16 +73,15 @@ class StemImage(Resource):
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a stem image.')
-        .param('body',
+        .jsonParam('body',
                'Should contain either `fileId` (a valid girder fileId of '
                'the image file) or `filePath` (a valid file path on the '
                'girder server to the image file).',
                paramType='body', dataType='StemImage')
         .errorResponse('Failed to create stem image', code=400)
     )
-    def create(self, params):
+    def create(self, body, params):
         user = self.getCurrentUser()
-        body = self.getBodyJson()
 
         fileId = body.get('fileId')
         filePath = body.get('filePath')
