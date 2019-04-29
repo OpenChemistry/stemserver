@@ -15,7 +15,7 @@ class StemImage(Resource):
 
     def __init__(self):
         super(StemImage, self).__init__()
-        self.resourceName = 'stem_image'
+        self.resourceName = 'stem_images'
         self.route('GET', (), self.find)
         self.route('GET', (':id', 'bright'), self.bright)
         self.route('GET', (':id', 'dark'), self.dark)
