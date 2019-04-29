@@ -21,6 +21,8 @@ class StemImage(Resource):
         self.route('GET', (':id', 'dark'), self.dark)
         self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
         self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
+        self.route('GET', (':id', 'electron', 'frames'), self.electron_frames)
+        self.route('GET', (':id', 'electron', 'scans'), self.electron_scans)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
@@ -74,6 +76,22 @@ class StemImage(Resource):
     )
     def dark_shape(self, id):
         return self._model.dark_shape(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the electron frames of an image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def electron_frames(self, id):
+        return self._model.electron_frames(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the electron scan positions of an image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def electron_scans(self, id):
+        return self._model.electron_scans(id, getCurrentUser())
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(

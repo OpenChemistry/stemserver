@@ -130,3 +130,10 @@ class StemImage(AccessControlledModel):
 
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
+
+    def electron_frames(self, id, user):
+        return self._get_h5_dataset(id, user, '/electron_events/frames')
+
+    def electron_scans(self, id, user):
+        return self._get_h5_dataset(id, user,
+                                    '/electron_events/scan_positions')
