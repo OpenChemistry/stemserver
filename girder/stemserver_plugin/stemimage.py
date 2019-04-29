@@ -1,5 +1,6 @@
-from girder.api.describe import Description, autoDescribeRoute
 from girder.api import access
+from girder.api.describe import Description, autoDescribeRoute
+from girder.api.docs import addModel
 from girder.api.rest import Resource
 from girder.api.rest import RestException
 from girder.api.rest import getCurrentUser
@@ -56,18 +57,38 @@ class StemImage(Resource):
     def dark(self, id):
         return self._model.dark(id, getCurrentUser())
 
+    addModel('StemImage', 'StemImageParams', {
+        'id': 'StemImageParams',
+        'properties': {
+            'fileId': {
+                'type': 'string',
+                'description': 'The girder file ID of the image.'
+            },
+            'filePath': {
+                'type': 'string',
+                'description': 'The file path to the image on the girder server.'
+            }
+        }
+    })
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
-        Description('Create a stem image')
-        .param('fileId', 'The file id of the image.', required=False)
-        .param('filePath', 'The file path to the image.', required=False)
+        Description('Create a stem image.')
+        .param('body',
+               'Should contain either `fileId` (a valid girder fileId of '
+               'the image file) or `filePath` (a valid file path on the '
+               'girder server to the image file).',
+               paramType='body', dataType='StemImage')
+        .errorResponse('Failed to create stem image', code=400)
     )
     def create(self, params):
-        user = getCurrentUser()
-        fileId = params.get('fileId')
-        filePath = params.get('filePath')
+        user = self.getCurrentUser()
+        body = self.getBodyJson()
 
-        return self._clean(self._model.create(user, fileId, filePath))
+        fileId = body.get('fileId')
+        filePath = body.get('filePath')
+        public = body.get('public', False)
+
+        return self._clean(self._model.create(user, fileId, filePath, public))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
