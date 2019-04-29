@@ -43,12 +43,12 @@ class StemImage(AccessControlledModel):
 
         return doc
 
-    def create(self, user, fileId=None, filePath=None, public=False):
+    def create(self, user, file_id=None, file_path=None, public=False):
         stem_image = {}
-        if fileId:
-            stem_image['fileId'] = fileId
-        elif filePath:
-            stem_image['filePath'] = filePath
+        if file_id:
+            stem_image['fileId'] = file_id
+        elif file_path:
+            stem_image['filePath'] = file_path
         else:
             raise RestException('Must set either fileId or filePath',
                                 code=400)

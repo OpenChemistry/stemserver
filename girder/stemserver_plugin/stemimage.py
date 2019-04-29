@@ -88,11 +88,11 @@ class StemImage(Resource):
     def create(self, body, params):
         user = self.getCurrentUser()
 
-        fileId = body.get('fileId')
-        filePath = body.get('filePath')
+        file_id = body.get('fileId')
+        file_path = body.get('filePath')
         public = body.get('public', False)
 
-        return self._clean(self._model.create(user, fileId, filePath, public))
+        return self._clean(self._model.create(user, file_id, file_path, public))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
