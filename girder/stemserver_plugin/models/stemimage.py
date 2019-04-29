@@ -15,7 +15,7 @@ class StemImage(AccessControlledModel):
         super(StemImage, self).__init__()
 
     def initialize(self):
-        self.name = 'StemImage'
+        self.name = 'stemimages'
 
         self.exposeFields(level=AccessType.READ, fields=(
            '_id', 'filePath', 'fileId'))
