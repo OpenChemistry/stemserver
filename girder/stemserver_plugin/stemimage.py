@@ -47,17 +47,25 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get the bright field of a stem image.')
         .param('id', 'The id of the stem image.')
+        .param('format',
+               'The format with which to send the data over http. '
+               'Currently either bytes (default) or msgpack.',
+               required=False)
     )
-    def bright(self, id):
-        return self._model.bright(id, getCurrentUser())
+    def bright(self, id, format=None):
+        return self._model.bright(id, format, getCurrentUser())
 
     @access.user
     @autoDescribeRoute(
         Description('Get the dark field of a stem image.')
         .param('id', 'The id of the stem image.')
+        .param('format',
+               'The format with which to send the data over http. '
+               'Currently either bytes (default) or msgpack',
+               required=False)
     )
-    def dark(self, id):
-        return self._model.dark(id, getCurrentUser())
+    def dark(self, id, format=None):
+        return self._model.dark(id, format, getCurrentUser())
 
     @access.user
     @autoDescribeRoute(

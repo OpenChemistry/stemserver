@@ -1,12 +1,25 @@
 import os
 
 import h5py
+import msgpack
 import numpy as np
 
 from girder.api.rest import setResponseHeader, RestException
 from girder.constants import AccessType
 from girder.models.file import File as FileModel
 from girder.models.model_base import AccessControlledModel
+
+def _get_h5_dataset_msgpack(f, path):
+    """Get a dataset as a msgpack.
+
+    Args:
+        f: a file path or file object to an h5 file
+        path: a path in the h5 file to a dataset
+
+    Returns: a msgpack file
+    """
+    with h5py.File(f, 'r') as rf:
+        return msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
 
 
 class StemImage(AccessControlledModel):
@@ -76,13 +89,24 @@ class StemImage(AccessControlledModel):
         raise RestException('StemImage does not contain `fileId` nor '
                             '`filePath`.', code=400)
 
-    def _get_h5_dataset(self, id, user, path):
+    def _get_h5_dataset(self, id, format, user, path):
+
+        if format is None:
+            format = 'bytes'
+
         stem_image = self.load(id, user=user, level=AccessType.READ)
 
         if not stem_image:
             raise RestException('StemImage not found.', code=404)
 
         f = self._get_file(stem_image)
+
+        if format == 'msgpack':
+            return _get_h5_dataset_msgpack(f, path)
+
+        # Should only be bytes beyond here
+        if format != 'bytes':
+            raise RestException('Invalid format: ' + format, code=400)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -108,11 +132,11 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def bright(self, id, user):
-        return self._get_h5_dataset(id, user, '/stem/bright')
+    def bright(self, id, format, user):
+        return self._get_h5_dataset(id, format, user, '/stem/bright')
 
-    def dark(self, id, user):
-        return self._get_h5_dataset(id, user, '/stem/dark')
+    def dark(self, id, format, user):
+        return self._get_h5_dataset(id, format, user, '/stem/dark')
 
     def _get_h5_dataset_shape(self, id, user, path):
         stem_image = self.load(id, user=user, level=AccessType.READ)
