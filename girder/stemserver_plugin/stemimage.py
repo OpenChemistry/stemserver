@@ -57,27 +57,14 @@ class StemImage(Resource):
     def dark(self, id):
         return self._model.dark(id, getCurrentUser())
 
-    addModel('StemImage', 'StemImageParams', {
-        'id': 'StemImageParams',
-        'properties': {
-            'fileId': {
-                'type': 'string',
-                'description': 'The girder file ID of the image.'
-            },
-            'filePath': {
-                'type': 'string',
-                'description': 'The file path to the image on the girder server.'
-            }
-        }
-    })
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a stem image.')
         .jsonParam('body',
-               'Should contain either `fileId` (a valid girder fileId of '
-               'the image file) or `filePath` (a valid file path on the '
-               'girder server to the image file).',
-               paramType='body', dataType='StemImage')
+                   'Should contain either `fileId` (a valid girder fileId of '
+                   'the image file) or `filePath` (a valid file path on the '
+                   'girder server to the image file).',
+                   paramType='body')
         .errorResponse('Failed to create stem image', code=400)
     )
     def create(self, body, params):
