@@ -6,4 +6,4 @@ class StemPlugin(plugin.GirderPlugin):
     DISPLAY_NAME = 'STEM'
 
     def load(self, info):
-        info['apiRoot'].stem_image = StemImage()
+        info['apiRoot'].stem_images = StemImage()
