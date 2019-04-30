@@ -1,3 +1,5 @@
+import os
+
 import h5py
 import numpy as np
 
@@ -16,7 +18,6 @@ from girder.utility.filesystem_assetstore_adapter import (
 class StemImage(AccessControlledModel):
 
     IMPORT_FOLDER = 'stem_images'
-    IMPORT_ITEM_NAME = '_imported_images'
 
     def __init__(self):
         super(StemImage, self).__init__()
@@ -54,12 +55,12 @@ class StemImage(AccessControlledModel):
                 raise RestException('Only admin users can use a filePath',
                                     code=403)
 
-            item = self._get_import_stem_item(user)
-            name = self._get_import_unique_file_name(item)
+            name = os.path.basename(file_path)
+            item = self._create_import_item(user, name)
             assetstore = self._get_assetstore()
 
             adapter = FilesystemAssetstoreAdapter(assetstore)
-            f = adapter.importFile(item, file_path, user, name)
+            f = adapter.importFile(item, file_path, user)
             stem_image['fileId'] = f['_id']
         else:
             raise RestException('Must set either fileId or filePath',
@@ -78,14 +79,16 @@ class StemImage(AccessControlledModel):
             raise RestException('StemImage not found.', code=404)
 
         # Try to load the file and check if it was imported.
-        # If it was imported, delete the imported file.
-        # If loading the file fails, remove the stem_image anyways
+        # If it was imported, delete the item containing the file.
+        # If loading/removing the file fails, remove the stem image anyways
         try:
-            f = FileModel().load(stem_image['fileId'], level=AccessType.READ,
+            f = FileModel().load(stem_image['fileId'], level=AccessType.WRITE,
                                  user=user)
             if f.get('imported', False) is True:
-                if f['itemId'] == self._get_import_stem_item(user)['_id']:
-                    FileModel().remove(f)
+                item = ItemModel().load(f['itemId'], level=AccessType.WRITE,
+                                        user=user)
+                if item['folderId'] == self._get_import_folder(user)['_id']:
+                    ItemModel().remove(item)
         except:
             pass
 
@@ -151,29 +154,23 @@ class StemImage(AccessControlledModel):
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
 
-    def _get_import_stem_item(self, user):
-        """Get the item where we will store stem images
+    def _get_import_folder(self, user):
+        """Get the folder where files will be imported.
 
-        A new folder and item will be created if they do not exist.
-        Otherwise, they will be reused.
-
+        If the folder does not exist, it will be created.
         """
-        folder = FolderModel().createFolder(user, StemImage.IMPORT_FOLDER,
-                                            parentType='user', public=False,
-                                            creator=user, reuseExisting=True)
+        return FolderModel().createFolder(user, StemImage.IMPORT_FOLDER,
+                                          parentType='user', public=False,
+                                          creator=user, reuseExisting=True)
 
-        return ItemModel().createItem(StemImage.IMPORT_ITEM_NAME, user, folder,
-                                      reuseExisting=True)
+    def _create_import_item(self, user, name):
+        """Create a new item and put it in the import folder.
 
-    def _get_import_unique_file_name(self, item):
-        """Get a unique name of a file to go in the item"""
-        files = ItemModel().childFiles(item)
-        names = [x['name'] for x in files]
-        for i in range(1, 1000):
-            if str(i) not in names:
-                return str(i)
+        The new item will be returned.
+        """
+        folder = self._get_import_folder(user)
 
-        raise RestException('Too many files in item:\n' + str(item), code=400)
+        return ItemModel().createItem(name, user, folder)
 
     def _get_assetstore(self):
         """Gets the asset store and ensures it is a file system"""
