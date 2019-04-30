@@ -9,7 +9,8 @@ with open('README.rst') as readme_file:
 requirements = [
     'girder>=3.0.0a1',
     'h5py>=2.9.0',
-    'numpy>=1.7'
+    'numpy>=1.7',
+    'msgpack>=0.6.1'
 ]
 
 setup(

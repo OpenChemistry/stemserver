@@ -1,6 +1,7 @@
 import os
 
 import h5py
+import msgpack
 import numpy as np
 
 from girder.api.rest import setResponseHeader, RestException
@@ -94,19 +95,19 @@ class StemImage(AccessControlledModel):
 
         return self.remove(stem_image)
 
-    def _get_file(self, stem_image, user):
+    def _get_file(self, stem_image_id, user):
         """Get a file object of the stem image"""
+        stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', code=404)
+
         girder_file = FileModel().load(stem_image['fileId'],
                                        level=AccessType.READ, user=user)
         return FileModel().open(girder_file)
 
     def _get_h5_dataset(self, id, user, path):
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image, user)
+        f = self._get_file(id, user)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -139,12 +140,7 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset(id, user, '/stem/dark')
 
     def _get_h5_dataset_shape(self, id, user, path):
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image, user)
+        f = self._get_file(id, user)
         with h5py.File(f, 'r') as f:
             return f[path].shape
 
@@ -155,7 +151,21 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
 
     def electron_frames(self, id, user):
-        return self._get_h5_dataset(id, user, '/electron_events/frames')
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                arrays = rf[path][()].tolist()
+                for i, array in enumerate(arrays):
+                    arrays[i] = array.tolist()
+
+                yield msgpack.packb(arrays, use_bin_type=True)
+
+        return _stream
 
     def electron_scans(self, id, user):
         return self._get_h5_dataset(id, user,
