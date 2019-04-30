@@ -99,7 +99,7 @@ class StemImage(Resource):
         .jsonParam('body',
                    'Should contain either `fileId` (a valid girder fileId of '
                    'the image file) or `filePath` (a valid file path on the '
-                   'girder server to the image file).',
+                   'girder server to the image file (admin users only)).',
                    paramType='body')
         .errorResponse('Failed to create stem image', code=400)
     )
@@ -119,11 +119,4 @@ class StemImage(Resource):
         .errorResponse('StemImage not found.', 404)
     )
     def delete(self, id):
-        user = self.getCurrentUser()
-        stem_image = StemImageModel().load(id, user=user,
-                                           level=AccessType.WRITE)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        return StemImageModel().remove(stem_image)
+        return self._model.delete(id, self.getCurrentUser())
