@@ -24,7 +24,7 @@ class StemImage(AccessControlledModel):
 
     def initialize(self):
         self.name = 'stemimages'
-        self.ensureIndices(('_id', 'fileId'))
+        self.ensureIndices(('fileId',))
         self.exposeFields(level=AccessType.READ, fields=('_id', 'fileId'))
 
     def filter(self, stem_image, user):
