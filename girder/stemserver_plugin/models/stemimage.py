@@ -190,13 +190,13 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def detector_positions(self, id, user):
+    def detector_dimensions(self, id, user):
         f = self._get_file(id, user)
         path = '/electron_events/frames'
         with h5py.File(f, 'r') as rf:
             dataset = rf[path]
             if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
-                raise RestException('Detector positions not found!', 404)
+                raise RestException('Detector dimensions not found!', 404)
 
             return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
 

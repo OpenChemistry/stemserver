@@ -18,11 +18,11 @@ class StemImage(Resource):
         self.route('GET', (':id', 'dark'), self.dark)
         self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
         self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
-        self.route('GET', (':id', 'frames', ':scan_position'), self.frame)
+        self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
         self.route('GET', (':id', 'frames'), self.all_frames)
-        self.route('GET', (':id', 'frames', 'detector_positions'),
-                   self.detector_positions)
-        self.route('GET', (':id', 'scan_positions'), self.scan_positions)
+        self.route('GET', (':id', 'frames', 'detectorDimensions'),
+                   self.detector_dimensions)
+        self.route('GET', (':id', 'scanPositions'), self.scan_positions)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
@@ -98,11 +98,11 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the detector positions of an image.')
+        Description('Get the detector dimensions of an image.')
         .param('id', 'The id of the stem image.')
     )
-    def detector_positions(self, id):
-        return self._model.detector_positions(id, getCurrentUser())
+    def detector_dimensions(self, id):
+        return self._model.detector_dimensions(id, getCurrentUser())
 
     @access.user
     @autoDescribeRoute(
