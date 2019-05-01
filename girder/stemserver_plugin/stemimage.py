@@ -21,8 +21,9 @@ class StemImage(Resource):
         self.route('GET', (':id', 'dark'), self.dark)
         self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
         self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
-        self.route('GET', (':id', 'electron', 'frames'), self.electron_frames)
-        self.route('GET', (':id', 'electron', 'scans'), self.electron_scans)
+        self.route('GET', (':id', 'frames', ':scan_position'), self.frame)
+        self.route('GET', (':id', 'frames'), self.all_frames)
+        self.route('GET', (':id', 'scan_positions'), self.scan_positions)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
@@ -79,19 +80,30 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the electron frames of an image.')
+        Description('Get a frame of an image (in bytes).')
         .param('id', 'The id of the stem image.')
+        .param('scan_position', 'The scan position of the frame.',
+               dataType='integer')
+        .errorResponse('Scan position is out of bounds', 400)
     )
-    def electron_frames(self, id):
-        return self._model.electron_frames(id, getCurrentUser())
+    def frame(self, id, scan_position):
+        return self._model.frame(id, getCurrentUser(), scan_position)
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the electron scan positions of an image.')
+        Description('Get all frames of an image (in msgpack format).')
         .param('id', 'The id of the stem image.')
     )
-    def electron_scans(self, id):
-        return self._model.electron_scans(id, getCurrentUser())
+    def all_frames(self, id):
+        return self._model.all_frames(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the scan positions of an image (in bytes).')
+        .param('id', 'The id of the stem image.')
+    )
+    def scan_positions(self, id):
+        return self._model.scan_positions(id, getCurrentUser())
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
@@ -101,7 +113,7 @@ class StemImage(Resource):
                    'the image file) or `filePath` (a valid file path on the '
                    'girder server to the image file (admin users only)).',
                    paramType='body')
-        .errorResponse('Failed to create stem image', code=400)
+        .errorResponse('Failed to create stem image', 400)
     )
     def create(self, body, params):
         user = self.getCurrentUser()

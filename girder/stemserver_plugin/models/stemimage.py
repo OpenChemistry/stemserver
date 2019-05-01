@@ -150,7 +150,32 @@ class StemImage(AccessControlledModel):
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
 
-    def electron_frames(self, id, user):
+    def frame(self, id, user, scan_position):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        # Make sure the scan position is not out of bounds
+        with h5py.File(f, 'r') as rf:
+            dataset = rf[path]
+            if dataset.shape[0] <= 0:
+                raise RestException('No data found in dataset: ' + path)
+            if scan_position >= dataset.shape[0]:
+                msg = ('scan_position ' + str(scan_position) + ' is greater '
+                       'than the max: ' + str(dataset.shape[0] - 1))
+                raise RestException(msg)
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                dataset = rf[path]
+                data = dataset[scan_position]
+                yield data.tobytes()
+
+        return _stream
+
+    def all_frames(self, id, user):
         f = self._get_file(id, user)
         path = '/electron_events/frames'
 
@@ -167,7 +192,7 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def electron_scans(self, id, user):
+    def scan_positions(self, id, user):
         return self._get_h5_dataset(id, user,
                                     '/electron_events/scan_positions')
 
