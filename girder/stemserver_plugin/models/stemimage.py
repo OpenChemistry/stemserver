@@ -198,7 +198,7 @@ class StemImage(AccessControlledModel):
             if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
                 raise RestException('Detector positions not found!', 404)
 
-            return dataset.attrs['Nx'], dataset.attrs['Ny']
+            return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
 
     def scan_positions(self, id, user):
         return self._get_h5_dataset(id, user,
