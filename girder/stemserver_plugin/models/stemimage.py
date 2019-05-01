@@ -41,7 +41,7 @@ class StemImage(AccessControlledModel):
         if 'fileId' in doc:
             FileModel().load(doc['fileId'], level=AccessType.READ, force=True)
         else:
-            raise RestException('stem image must contain `fileId`', code=400)
+            raise RestException('stem image must contain `fileId`')
 
         return doc
 
@@ -53,8 +53,7 @@ class StemImage(AccessControlledModel):
             # Only admin users can do this
             admin = user.get('admin', False)
             if admin is not True:
-                raise RestException('Only admin users can use a filePath',
-                                    code=403)
+                raise RestException('Only admin users can use a filePath', 403)
 
             name = os.path.basename(file_path)
             item = self._create_import_item(user, name)
@@ -64,8 +63,7 @@ class StemImage(AccessControlledModel):
             f = adapter.importFile(item, file_path, user)
             stem_image['fileId'] = f['_id']
         else:
-            raise RestException('Must set either fileId or filePath',
-                                code=400)
+            raise RestException('Must set either fileId or filePath')
 
         self.setUserAccess(stem_image, user=user, level=AccessType.ADMIN)
         if public:
@@ -77,7 +75,7 @@ class StemImage(AccessControlledModel):
         stem_image = self.load(id, user=user, level=AccessType.WRITE)
 
         if not stem_image:
-            raise RestException('StemImage not found.', code=404)
+            raise RestException('StemImage not found.', 404)
 
         # Try to load the file and check if it was imported.
         # If it was imported, delete the item containing the file.
@@ -100,7 +98,7 @@ class StemImage(AccessControlledModel):
         stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
 
         if not stem_image:
-            raise RestException('StemImage not found.', code=404)
+            raise RestException('StemImage not found.', 404)
 
         girder_file = FileModel().load(stem_image['fileId'],
                                        level=AccessType.READ, user=user)
@@ -218,6 +216,5 @@ class StemImage(AccessControlledModel):
         """Gets the asset store and ensures it is a file system"""
         assetstore = AssetstoreModel().getCurrent()
         if assetstore['type'] is not AssetstoreType.FILESYSTEM:
-            raise RestException('Current assetstore is not a file system!',
-                                code=400)
+            raise RestException('Current assetstore is not a file system!')
         return assetstore

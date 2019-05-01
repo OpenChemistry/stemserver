@@ -1,11 +1,8 @@
 from girder.api import access
 from girder.api.describe import Description, autoDescribeRoute
-from girder.api.docs import addModel
 from girder.api.rest import Resource
-from girder.api.rest import RestException
 from girder.api.rest import getCurrentUser
 
-from girder.constants import AccessType
 from girder.constants import TokenScope
 
 from .models.stemimage import StemImage as StemImageModel
@@ -84,7 +81,7 @@ class StemImage(Resource):
         .param('id', 'The id of the stem image.')
         .param('scan_position', 'The scan position of the frame.',
                dataType='integer')
-        .errorResponse('Scan position is out of bounds', 400)
+        .errorResponse('Scan position is out of bounds')
     )
     def frame(self, id, scan_position):
         return self._model.frame(id, getCurrentUser(), scan_position)
@@ -113,7 +110,7 @@ class StemImage(Resource):
                    'the image file) or `filePath` (a valid file path on the '
                    'girder server to the image file (admin users only)).',
                    paramType='body')
-        .errorResponse('Failed to create stem image', 400)
+        .errorResponse('Failed to create stem image')
     )
     def create(self, body, params):
         user = self.getCurrentUser()
@@ -122,7 +119,8 @@ class StemImage(Resource):
         file_path = body.get('filePath')
         public = body.get('public', False)
 
-        return self._clean(self._model.create(user, file_id, file_path, public))
+        return self._clean(self._model.create(user, file_id, file_path,
+                                              public))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
