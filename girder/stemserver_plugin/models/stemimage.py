@@ -1,6 +1,7 @@
 import os
 
 import h5py
+import msgpack
 import numpy as np
 
 from girder.api.rest import setResponseHeader, RestException
@@ -40,7 +41,7 @@ class StemImage(AccessControlledModel):
         if 'fileId' in doc:
             FileModel().load(doc['fileId'], level=AccessType.READ, force=True)
         else:
-            raise RestException('stem image must contain `fileId`', code=400)
+            raise RestException('stem image must contain `fileId`')
 
         return doc
 
@@ -52,8 +53,7 @@ class StemImage(AccessControlledModel):
             # Only admin users can do this
             admin = user.get('admin', False)
             if admin is not True:
-                raise RestException('Only admin users can use a filePath',
-                                    code=403)
+                raise RestException('Only admin users can use a filePath', 403)
 
             name = os.path.basename(file_path)
             item = self._create_import_item(user, name)
@@ -63,8 +63,7 @@ class StemImage(AccessControlledModel):
             f = adapter.importFile(item, file_path, user)
             stem_image['fileId'] = f['_id']
         else:
-            raise RestException('Must set either fileId or filePath',
-                                code=400)
+            raise RestException('Must set either fileId or filePath')
 
         self.setUserAccess(stem_image, user=user, level=AccessType.ADMIN)
         if public:
@@ -76,7 +75,7 @@ class StemImage(AccessControlledModel):
         stem_image = self.load(id, user=user, level=AccessType.WRITE)
 
         if not stem_image:
-            raise RestException('StemImage not found.', code=404)
+            raise RestException('StemImage not found.', 404)
 
         # Try to load the file and check if it was imported.
         # If it was imported, delete the item containing the file.
@@ -94,19 +93,19 @@ class StemImage(AccessControlledModel):
 
         return self.remove(stem_image)
 
-    def _get_file(self, stem_image, user):
+    def _get_file(self, stem_image_id, user):
         """Get a file object of the stem image"""
+        stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', 404)
+
         girder_file = FileModel().load(stem_image['fileId'],
                                        level=AccessType.READ, user=user)
         return FileModel().open(girder_file)
 
     def _get_h5_dataset(self, id, user, path):
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image, user)
+        f = self._get_file(id, user)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -139,12 +138,7 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset(id, user, '/stem/dark')
 
     def _get_h5_dataset_shape(self, id, user, path):
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image, user)
+        f = self._get_file(id, user)
         with h5py.File(f, 'r') as f:
             return f[path].shape
 
@@ -153,6 +147,62 @@ class StemImage(AccessControlledModel):
 
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
+
+    def frame(self, id, user, scan_position):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        # Make sure the scan position is not out of bounds
+        with h5py.File(f, 'r') as rf:
+            dataset = rf[path]
+            if dataset.shape[0] <= 0:
+                raise RestException('No data found in dataset: ' + path)
+            if scan_position >= dataset.shape[0]:
+                msg = ('scan_position ' + str(scan_position) + ' is greater '
+                       'than the max: ' + str(dataset.shape[0] - 1))
+                raise RestException(msg)
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                dataset = rf[path]
+                data = dataset[scan_position]
+                yield data.tobytes()
+
+        return _stream
+
+    def all_frames(self, id, user):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                arrays = rf[path][()].tolist()
+                for i, array in enumerate(arrays):
+                    arrays[i] = array.tolist()
+
+                yield msgpack.packb(arrays, use_bin_type=True)
+
+        return _stream
+
+    def detector_dimensions(self, id, user):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+        with h5py.File(f, 'r') as rf:
+            dataset = rf[path]
+            if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
+                raise RestException('Detector dimensions not found!', 404)
+
+            return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
+
+    def scan_positions(self, id, user):
+        return self._get_h5_dataset(id, user,
+                                    '/electron_events/scan_positions')
 
     def _get_import_folder(self, user):
         """Get the folder where files will be imported.
@@ -176,6 +226,5 @@ class StemImage(AccessControlledModel):
         """Gets the asset store and ensures it is a file system"""
         assetstore = AssetstoreModel().getCurrent()
         if assetstore['type'] is not AssetstoreType.FILESYSTEM:
-            raise RestException('Current assetstore is not a file system!',
-                                code=400)
+            raise RestException('Current assetstore is not a file system!')
         return assetstore

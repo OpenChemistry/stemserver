@@ -1,11 +1,8 @@
 from girder.api import access
 from girder.api.describe import Description, autoDescribeRoute
-from girder.api.docs import addModel
 from girder.api.rest import Resource
-from girder.api.rest import RestException
 from girder.api.rest import getCurrentUser
 
-from girder.constants import AccessType
 from girder.constants import TokenScope
 
 from .models.stemimage import StemImage as StemImageModel
@@ -21,6 +18,11 @@ class StemImage(Resource):
         self.route('GET', (':id', 'dark'), self.dark)
         self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
         self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
+        self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
+        self.route('GET', (':id', 'frames'), self.all_frames)
+        self.route('GET', (':id', 'frames', 'detectorDimensions'),
+                   self.detector_dimensions)
+        self.route('GET', (':id', 'scanPositions'), self.scan_positions)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
 
@@ -75,6 +77,41 @@ class StemImage(Resource):
     def dark_shape(self, id):
         return self._model.dark_shape(id, getCurrentUser())
 
+    @access.user
+    @autoDescribeRoute(
+        Description('Get a frame of an image (in bytes).')
+        .param('id', 'The id of the stem image.')
+        .param('scan_position', 'The scan position of the frame.',
+               dataType='integer')
+        .errorResponse('Scan position is out of bounds')
+    )
+    def frame(self, id, scan_position):
+        return self._model.frame(id, getCurrentUser(), scan_position)
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get all frames of an image (in msgpack format).')
+        .param('id', 'The id of the stem image.')
+    )
+    def all_frames(self, id):
+        return self._model.all_frames(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the detector dimensions of an image.')
+        .param('id', 'The id of the stem image.')
+    )
+    def detector_dimensions(self, id):
+        return self._model.detector_dimensions(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get the scan positions of an image (in bytes).')
+        .param('id', 'The id of the stem image.')
+    )
+    def scan_positions(self, id):
+        return self._model.scan_positions(id, getCurrentUser())
+
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
         Description('Create a stem image.')
@@ -83,7 +120,7 @@ class StemImage(Resource):
                    'the image file) or `filePath` (a valid file path on the '
                    'girder server to the image file (admin users only)).',
                    paramType='body')
-        .errorResponse('Failed to create stem image', code=400)
+        .errorResponse('Failed to create stem image')
     )
     def create(self, body, params):
         user = self.getCurrentUser()
@@ -92,7 +129,8 @@ class StemImage(Resource):
         file_path = body.get('filePath')
         public = body.get('public', False)
 
-        return self._clean(self._model.create(user, file_id, file_path, public))
+        return self._clean(self._model.create(user, file_id, file_path,
+                                              public))
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
