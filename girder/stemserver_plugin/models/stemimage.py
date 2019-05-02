@@ -107,7 +107,7 @@ class StemImage(AccessControlledModel):
     def _get_h5_dataset(self, id, user, path, format='bytes'):
         f = self._get_file(id, user)
 
-        if format == 'bytes':
+        if format == 'bytes' or format is None:
             return self._get_h5_dataset_bytes(f, path)
         elif format == 'msgpack':
             return self._get_h5_dataset_msgpack(f, path)

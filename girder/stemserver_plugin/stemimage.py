@@ -54,7 +54,7 @@ class StemImage(Resource):
                'Currently either bytes (default) or msgpack.',
                required=False)
     )
-    def bright(self, id, format=None):
+    def bright(self, id, format):
         return self._model.bright(id, getCurrentUser(), format)
 
     @access.user
@@ -66,7 +66,7 @@ class StemImage(Resource):
                'Currently either bytes (default) or msgpack',
                required=False)
     )
-    def dark(self, id, format=None):
+    def dark(self, id, format):
         return self._model.dark(id, getCurrentUser(), format)
 
     @access.user
