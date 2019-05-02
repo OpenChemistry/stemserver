@@ -246,7 +246,9 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal f
             with h5py.File(f, 'r') as rf:
-                yield msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
+                dataset = rf[path]
+                for array in self._get_dataset_in_chunks(dataset):
+                    yield msgpack.packb(array.tolist(), use_bin_type=True)
 
         return _stream
 
