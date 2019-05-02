@@ -1,0 +1,41 @@
+- name: Setting up Girder
+  hosts: all
+  vars:
+    required_ansible_version: 2.1.0
+  tasks:
+    - fail: msg="Playbook requires ansible >= {{required_ansible_version}}"
+      when: ansible_version.string is version_compare(required_ansible_version, '<')
+
+    - name: Set some facts
+      set_fact:
+        girder_host: "{{girder_host|default('localhost')}}"
+        girder_port: "{{girder_port|default(8080)}}"
+        girder_scheme: "http"
+
+    - name: Create Girder stemdmin user
+      girder:
+        host: "{{girder_host}}"
+        port: "{{girder_port}}"
+        scheme: "{{girder_scheme}}"
+        user:
+          firstName: "stem"
+          lastName: "stem"
+          login: "stemadmin"
+          password: "{{ stemadmin_password }}"
+          email: "stem@kitware.com"
+          admin: yes
+        state: present
+    
+    - name: Create filesystem assetstore
+      girder:
+        host: "{{girder_host}}"
+        port: "{{girder_port}}"
+        scheme: "{{girder_scheme}}"
+        username: "stemadmin"
+        password: "{{ stemadmin_password }}"
+        assetstore:
+          name: "Filesystem Assetstore"
+          type: "filesystem"
+          root: "/assetstore"
+          current: true
+        state: present
