@@ -254,5 +254,11 @@ class StemImage(AccessControlledModel):
 
         Returns: a dataset packed with msgpack
         """
-        with h5py.File(f, 'r') as rf:
-            return msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                yield msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
+
+        return _stream
