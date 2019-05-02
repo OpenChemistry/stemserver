@@ -250,7 +250,7 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def _get_dataset_in_chunks(self, dataset, max_chunk_size=1000):
+    def _get_dataset_in_chunks(self, dataset, max_chunk_size=64000):
         """A generator to yield numpy arrays of the dataset.
 
         Args:
