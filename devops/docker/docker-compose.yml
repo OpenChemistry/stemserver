@@ -12,10 +12,45 @@ services:
       - SETUID
       - SETGID
       - NET_BIND_SERVICE
-    ports:
-          - 50049:5000
 
-  web-nginx:
+  db-mongodb:
+    image: mongo:4.0
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+
+    volumes:
+        - db-mongodb.stem:/data/db
+
+  app-girder:
+    image: openchemistry/stemserver-girder:latest
+    labels:
+      io.rancher.container.pull_image: always
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+
+    command: -d mongodb://db-mongodb:27017/girder
+    ports:
+          - 8080:8080
+    volumes:
+      - app-assetstore.stem:/assetstore
+    links:
+      - db-mongodb
+    depends_on:
+      - db-mongodb
+
+  web-client:
     image: openchemistry/stemclient:latest
     labels:
       io.rancher.container.pull_image: always
@@ -29,10 +64,31 @@ services:
       - NET_BIND_SERVICE
     group_add:
       - nginx
-    links:
-      - app-flask
     depends_on:
       - app-flask
-    ports:
-          - 60048:80
+      - app-girder
 
+  web-nginx:
+    image: openchemistry/stem-nginx:latest
+    labels:
+      io.rancher.container.pull_image: always
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+    group_add:
+      - nginx
+    ports:
+      - 80:80
+    depends_on:
+      - web-client
+      - app-flask
+      - app-girder
+
+volumes:
+   db-mongodb.stem:
+   app-assetstore.stem:
