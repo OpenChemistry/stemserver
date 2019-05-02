@@ -165,11 +165,22 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal f
             with h5py.File(f, 'r') as rf:
+                current_size = 0
+                max_chunk_size = 64000
                 arrays = rf[path][()].tolist()
+                data = []
                 for i, array in enumerate(arrays):
-                    arrays[i] = array.tolist()
+                    array_size = array.size * array.dtype.itemsize
+                    if len(data) != 0:
+                        if current_size + array_size > max_chunk_size:
+                            yield msgpack.packb(data, use_bin_type=True)
+                            data = []
+                            current_size = 0
 
-                yield msgpack.packb(arrays, use_bin_type=True)
+                    data.append(array.tolist())
+                    current_size += array_size
+
+                yield msgpack.packb(data, use_bin_type=True)
 
         return _stream
 
