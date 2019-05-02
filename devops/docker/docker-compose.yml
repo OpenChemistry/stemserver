@@ -45,8 +45,6 @@ services:
           - 8080:8080
     volumes:
       - app-assetstore.stem:/assetstore
-    links:
-      - db-mongodb
     depends_on:
       - db-mongodb
 
