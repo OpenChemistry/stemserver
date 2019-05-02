@@ -5,9 +5,15 @@ import msgpack
 import numpy as np
 
 from girder.api.rest import setResponseHeader, RestException
-from girder.constants import AccessType
+from girder.constants import AccessType, AssetstoreType
+from girder.models.assetstore import Assetstore as AssetstoreModel
 from girder.models.file import File as FileModel
+from girder.models.folder import Folder as FolderModel
+from girder.models.item import Item as ItemModel
 from girder.models.model_base import AccessControlledModel
+from girder.utility.filesystem_assetstore_adapter import (
+    FilesystemAssetstoreAdapter
+)
 
 def _get_h5_dataset_msgpack(f, path):
     """Get a dataset as a msgpack.
@@ -24,14 +30,15 @@ def _get_h5_dataset_msgpack(f, path):
 
 class StemImage(AccessControlledModel):
 
+    IMPORT_FOLDER = 'stem_images'
+
     def __init__(self):
         super(StemImage, self).__init__()
 
     def initialize(self):
         self.name = 'stemimages'
-
-        self.exposeFields(level=AccessType.READ, fields=(
-           '_id', 'filePath', 'fileId'))
+        self.ensureIndices(('fileId',))
+        self.exposeFields(level=AccessType.READ, fields=('_id', 'fileId'))
 
     def filter(self, stem_image, user):
         stem_image = super(StemImage, self).filter(doc=stem_image, user=user)
@@ -42,17 +49,11 @@ class StemImage(AccessControlledModel):
         return stem_image
 
     def validate(self, doc):
-        # Ensure the fileId or filePath are valid
+        # Ensure the file exists
         if 'fileId' in doc:
-            file = FileModel().load(doc['fileId'], level=AccessType.READ)
-            doc['fileId'] = file['_id']
-        elif 'filePath' in doc:
-            if not os.path.isfile(doc['filePath']):
-                msg = 'File does not exist: ' + doc['filePath']
-                raise RestException(msg, code=400)
+            FileModel().load(doc['fileId'], level=AccessType.READ, force=True)
         else:
-            raise RestException('Neither fileId nor filePath are set',
-                                code=400)
+            raise RestException('stem image must contain `fileId`')
 
         return doc
 
@@ -61,10 +62,20 @@ class StemImage(AccessControlledModel):
         if file_id:
             stem_image['fileId'] = file_id
         elif file_path:
-            stem_image['filePath'] = file_path
+            # Only admin users can do this
+            admin = user.get('admin', False)
+            if admin is not True:
+                raise RestException('Only admin users can use a filePath', 403)
+
+            name = os.path.basename(file_path)
+            item = self._create_import_item(user, name)
+            assetstore = self._get_assetstore()
+
+            adapter = FilesystemAssetstoreAdapter(assetstore)
+            f = adapter.importFile(item, file_path, user)
+            stem_image['fileId'] = f['_id']
         else:
-            raise RestException('Must set either fileId or filePath',
-                                code=400)
+            raise RestException('Must set either fileId or filePath')
 
         self.setUserAccess(stem_image, user=user, level=AccessType.ADMIN)
         if public:
@@ -72,34 +83,45 @@ class StemImage(AccessControlledModel):
 
         return self.save(stem_image)
 
-    def _get_file(self, stem_image):
-        """Get the file object or file path of the stem image.
+    def delete(self, id, user):
+        stem_image = self.load(id, user=user, level=AccessType.WRITE)
 
-        If there is a fileId in stem_image, returns a file object.
-        If there is a filePath in stem_image, returns the path.
+        if not stem_image:
+            raise RestException('StemImage not found.', 404)
 
-        """
-        if 'fileId' in stem_image:
-            girder_file = FileModel().load(stem_image['fileId'],
-                                           level=AccessType.READ)
-            return FileModel().open(girder_file)
-        elif 'filePath' in stem_image:
-            return stem_image['filePath']
+        # Try to load the file and check if it was imported.
+        # If it was imported, delete the item containing the file.
+        # If loading/removing the file fails, remove the stem image anyways
+        try:
+            f = FileModel().load(stem_image['fileId'], level=AccessType.WRITE,
+                                 user=user)
+            if f.get('imported', False) is True:
+                item = ItemModel().load(f['itemId'], level=AccessType.WRITE,
+                                        user=user)
+                if item['folderId'] == self._get_import_folder(user)['_id']:
+                    ItemModel().remove(item)
+        except:
+            pass
 
-        raise RestException('StemImage does not contain `fileId` nor '
-                            '`filePath`.', code=400)
+        return self.remove(stem_image)
+
+    def _get_file(self, stem_image_id, user):
+        """Get a file object of the stem image"""
+        stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', 404)
+
+        girder_file = FileModel().load(stem_image['fileId'],
+                                       level=AccessType.READ, user=user)
+        return FileModel().open(girder_file)
 
     def _get_h5_dataset(self, id, format, user, path):
 
         if format is None:
             format = 'bytes'
 
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image)
+        f = self._get_file(id, user)
 
         if format == 'msgpack':
             return _get_h5_dataset_msgpack(f, path)
@@ -139,13 +161,7 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset(id, format, user, '/stem/dark')
 
     def _get_h5_dataset_shape(self, id, user, path):
-        stem_image = self.load(id, user=user, level=AccessType.READ)
-
-        if not stem_image:
-            raise RestException('StemImage not found.', code=404)
-
-        f = self._get_file(stem_image)
-
+        f = self._get_file(id, user)
         with h5py.File(f, 'r') as f:
             return f[path].shape
 
@@ -154,3 +170,84 @@ class StemImage(AccessControlledModel):
 
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
+
+    def frame(self, id, user, scan_position):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        # Make sure the scan position is not out of bounds
+        with h5py.File(f, 'r') as rf:
+            dataset = rf[path]
+            if dataset.shape[0] <= 0:
+                raise RestException('No data found in dataset: ' + path)
+            if scan_position >= dataset.shape[0]:
+                msg = ('scan_position ' + str(scan_position) + ' is greater '
+                       'than the max: ' + str(dataset.shape[0] - 1))
+                raise RestException(msg)
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                dataset = rf[path]
+                data = dataset[scan_position]
+                yield data.tobytes()
+
+        return _stream
+
+    def all_frames(self, id, user):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                arrays = rf[path][()].tolist()
+                for i, array in enumerate(arrays):
+                    arrays[i] = array.tolist()
+
+                yield msgpack.packb(arrays, use_bin_type=True)
+
+        return _stream
+
+    def detector_dimensions(self, id, user):
+        f = self._get_file(id, user)
+        path = '/electron_events/frames'
+        with h5py.File(f, 'r') as rf:
+            dataset = rf[path]
+            if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
+                raise RestException('Detector dimensions not found!', 404)
+
+            return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
+
+    def scan_positions(self, id, user):
+        return self._get_h5_dataset(id, user,
+                                    '/electron_events/scan_positions')
+
+    def _get_import_folder(self, user):
+        """Get the folder where files will be imported.
+
+        If the folder does not exist, it will be created.
+        """
+        return FolderModel().createFolder(user, StemImage.IMPORT_FOLDER,
+                                          parentType='user', public=False,
+                                          creator=user, reuseExisting=True)
+
+    def _create_import_item(self, user, name):
+        """Create a new item and put it in the import folder.
+
+        The new item will be returned.
+        """
+        folder = self._get_import_folder(user)
+
+        return ItemModel().createItem(name, user, folder)
+
+    def _get_assetstore(self):
+        """Gets the asset store and ensures it is a file system"""
+        assetstore = AssetstoreModel().getCurrent()
+        if assetstore['type'] is not AssetstoreType.FILESYSTEM:
+            raise RestException('Current assetstore is not a file system!')
+        return assetstore
