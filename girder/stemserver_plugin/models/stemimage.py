@@ -104,38 +104,21 @@ class StemImage(AccessControlledModel):
                                        level=AccessType.READ, user=user)
         return FileModel().open(girder_file)
 
-    def _get_h5_dataset(self, id, user, path):
+    def _get_h5_dataset(self, id, user, path, format='bytes'):
         f = self._get_file(id, user)
 
-        setResponseHeader('Content-Type', 'application/octet-stream')
+        if format == 'bytes' or format is None:
+            return self._get_h5_dataset_bytes(f, path)
+        elif format == 'msgpack':
+            return self._get_h5_dataset_msgpack(f, path)
+        else:
+            raise RestException('Unknown format: ' + format)
 
-        def _stream():
-            nonlocal f
-            with h5py.File(f, 'r') as f:
-                dataset = f[path]
-                read_size = 10
-                total_read = 0
-                while total_read != dataset.shape[0]:
-                    if total_read + read_size > dataset.shape[0]:
-                        read_size = dataset.shape[0] - total_read
+    def bright(self, id, user, format):
+        return self._get_h5_dataset(id, user, '/stem/bright', format)
 
-                    shape = (read_size,) + dataset.shape[1:]
-                    array = np.empty(shape, dtype=dataset.dtype)
-
-                    start = total_read
-                    end = start + read_size
-
-                    dataset.read_direct(array, source_sel=np.s_[start:end])
-                    total_read += read_size
-                    yield array.tobytes()
-
-        return _stream
-
-    def bright(self, id, user):
-        return self._get_h5_dataset(id, user, '/stem/bright')
-
-    def dark(self, id, user):
-        return self._get_h5_dataset(id, user, '/stem/dark')
+    def dark(self, id, user, format):
+        return self._get_h5_dataset(id, user, '/stem/dark', format)
 
     def _get_h5_dataset_shape(self, id, user, path):
         f = self._get_file(id, user)
@@ -228,3 +211,54 @@ class StemImage(AccessControlledModel):
         if assetstore['type'] is not AssetstoreType.FILESYSTEM:
             raise RestException('Current assetstore is not a file system!')
         return assetstore
+
+    def _get_h5_dataset_bytes(self, f, path):
+        """Get a dataset as bytes.
+
+        Args:
+            f: a file path or file object to an h5 file
+            path: a path in the h5 file to a dataset
+
+        Returns: a dataset in bytes
+        """
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as f:
+                dataset = f[path]
+                read_size = 10
+                total_read = 0
+                while total_read != dataset.shape[0]:
+                    if total_read + read_size > dataset.shape[0]:
+                        read_size = dataset.shape[0] - total_read
+
+                    shape = (read_size,) + dataset.shape[1:]
+                    array = np.empty(shape, dtype=dataset.dtype)
+
+                    start = total_read
+                    end = start + read_size
+
+                    dataset.read_direct(array, source_sel=np.s_[start:end])
+                    total_read += read_size
+                    yield array.tobytes()
+
+        return _stream
+
+    def _get_h5_dataset_msgpack(self, f, path):
+        """Get a dataset packed with msgpack.
+
+        Args:
+            f: a file path or file object to an h5 file
+            path: a path in the h5 file to a dataset
+
+        Returns: a dataset packed with msgpack
+        """
+        setResponseHeader('Content-Type', 'application/octet-stream')
+
+        def _stream():
+            nonlocal f
+            with h5py.File(f, 'r') as rf:
+                yield msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
+
+        return _stream

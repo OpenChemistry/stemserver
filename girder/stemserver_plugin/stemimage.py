@@ -49,17 +49,25 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get the bright field of a stem image.')
         .param('id', 'The id of the stem image.')
+        .param('format',
+               'The format with which to send the data over http. '
+               'Currently either bytes (default) or msgpack.',
+               required=False)
     )
-    def bright(self, id):
-        return self._model.bright(id, getCurrentUser())
+    def bright(self, id, format):
+        return self._model.bright(id, getCurrentUser(), format)
 
     @access.user
     @autoDescribeRoute(
         Description('Get the dark field of a stem image.')
         .param('id', 'The id of the stem image.')
+        .param('format',
+               'The format with which to send the data over http. '
+               'Currently either bytes (default) or msgpack',
+               required=False)
     )
-    def dark(self, id):
-        return self._model.dark(id, getCurrentUser())
+    def dark(self, id, format):
+        return self._model.dark(id, getCurrentUser(), format)
 
     @access.user
     @autoDescribeRoute(
@@ -79,7 +87,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get a frame of an image (in bytes).')
+        Description('Get a frame of an image.')
         .param('id', 'The id of the stem image.')
         .param('scan_position', 'The scan position of the frame.',
                dataType='integer')
@@ -90,7 +98,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get all frames of an image (in msgpack format).')
+        Description('Get all frames of an image (msgpack format only).')
         .param('id', 'The id of the stem image.')
     )
     def all_frames(self, id):
@@ -106,7 +114,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the scan positions of an image (in bytes).')
+        Description('Get the scan positions of an image.')
         .param('id', 'The id of the stem image.')
     )
     def scan_positions(self, id):
