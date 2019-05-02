@@ -55,7 +55,7 @@ class StemImage(Resource):
                required=False)
     )
     def bright(self, id, format=None):
-        return self._model.bright(id, format, getCurrentUser())
+        return self._model.bright(id, getCurrentUser(), format)
 
     @access.user
     @autoDescribeRoute(
@@ -67,7 +67,7 @@ class StemImage(Resource):
                required=False)
     )
     def dark(self, id, format=None):
-        return self._model.dark(id, format, getCurrentUser())
+        return self._model.dark(id, getCurrentUser(), format)
 
     @access.user
     @autoDescribeRoute(
@@ -87,7 +87,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get a frame of an image (in bytes).')
+        Description('Get a frame of an image.')
         .param('id', 'The id of the stem image.')
         .param('scan_position', 'The scan position of the frame.',
                dataType='integer')
@@ -98,7 +98,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get all frames of an image (in msgpack format).')
+        Description('Get all frames of an image (msgpack format only).')
         .param('id', 'The id of the stem image.')
     )
     def all_frames(self, id):
@@ -114,7 +114,7 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the scan positions of an image (in bytes).')
+        Description('Get the scan positions of an image.')
         .param('id', 'The id of the stem image.')
     )
     def scan_positions(self, id):
