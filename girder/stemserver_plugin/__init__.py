@@ -1,9 +1,9 @@
 from girder import plugin
+from .stemimage import StemImage
 
 
-class GirderPlugin(plugin.GirderPlugin):
-    DISPLAY_NAME = 'stemserver_plugin'
+class StemPlugin(plugin.GirderPlugin):
+    DISPLAY_NAME = 'STEM'
 
     def load(self, info):
-        # add plugin loading logic here
-        pass
+        info['apiRoot'].stem_images = StemImage()
