@@ -165,22 +165,9 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal f
             with h5py.File(f, 'r') as rf:
-                current_size = 0
-                max_chunk_size = 64000
-                arrays = rf[path][()].tolist()
-                data = []
-                for i, array in enumerate(arrays):
-                    array_size = array.size * array.dtype.itemsize
-                    if len(data) != 0:
-                        if current_size + array_size > max_chunk_size:
-                            yield msgpack.packb(data, use_bin_type=True)
-                            data = []
-                            current_size = 0
-
-                    data.append(array.tolist())
-                    current_size += array_size
-
-                yield msgpack.packb(data, use_bin_type=True)
+                dataset = rf[path]
+                for data in self._get_vlen_dataset_in_chunks(dataset):
+                    yield msgpack.packb(data, use_bin_type=True)
 
         return _stream
 
@@ -262,6 +249,36 @@ class StemImage(AccessControlledModel):
                     yield msgpack.packb(array.tolist(), use_bin_type=True)
 
         return _stream
+
+    def _get_vlen_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+        """A generator to yield lists of lists of a vlen dataset.
+
+        A vlen dataset is a dataset whose elements are variable length
+        arrays.
+
+        Args:
+            dataset: An h5py dataset containing vlen arrays
+            max_chunk_size: The maximum size in bytes to be sent. This
+                            will be used to determine how many arrays
+                            to send. Note that it will always send at
+                            least one array, even if the size exceeds
+                            the max.
+        Yields: Arrays of the dataset
+        """
+        current_size = 0
+        data = []
+        for array in dataset:
+            array_size = array.size * array.dtype.itemsize
+            if len(data) != 0:
+                if current_size + array_size > max_chunk_size:
+                    yield data
+                    data.clear()
+                    current_size = 0
+
+            data.append(array.tolist())
+            current_size += array_size
+
+        yield data
 
     def _get_dataset_in_chunks(self, dataset, max_chunk_size=64000):
         """A generator to yield numpy arrays of the dataset.
