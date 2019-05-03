@@ -1,7 +1,7 @@
 version: '2'
 services:
   app-flask:
-    image: openchemistry/stemserver:latest
+    image: openchemistry/stemserver-flask:latest
     labels:
       io.rancher.container.pull_image: always
     cap_drop:
@@ -67,7 +67,7 @@ services:
       - app-girder
 
   web-nginx:
-    image: openchemistry/stem-nginx:latest
+    image: openchemistry/stemserver-nginx:latest
     labels:
       io.rancher.container.pull_image: always
     cap_drop:
