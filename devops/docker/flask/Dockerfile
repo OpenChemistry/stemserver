@@ -1,6 +1,6 @@
 FROM python:3.6-slim
 
-COPY . /server
+COPY flask /server
 
 RUN cd /server && pip install .
 
