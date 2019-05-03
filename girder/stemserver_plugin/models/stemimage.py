@@ -165,11 +165,9 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal f
             with h5py.File(f, 'r') as rf:
-                arrays = rf[path][()].tolist()
-                for i, array in enumerate(arrays):
-                    arrays[i] = array.tolist()
-
-                yield msgpack.packb(arrays, use_bin_type=True)
+                dataset = rf[path]
+                for data in self._get_vlen_dataset_in_chunks(dataset):
+                    yield msgpack.packb(data, use_bin_type=True)
 
         return _stream
 
@@ -227,20 +225,7 @@ class StemImage(AccessControlledModel):
             nonlocal f
             with h5py.File(f, 'r') as f:
                 dataset = f[path]
-                read_size = 10
-                total_read = 0
-                while total_read != dataset.shape[0]:
-                    if total_read + read_size > dataset.shape[0]:
-                        read_size = dataset.shape[0] - total_read
-
-                    shape = (read_size,) + dataset.shape[1:]
-                    array = np.empty(shape, dtype=dataset.dtype)
-
-                    start = total_read
-                    end = start + read_size
-
-                    dataset.read_direct(array, source_sel=np.s_[start:end])
-                    total_read += read_size
+                for array in self._get_dataset_in_chunks(dataset):
                     yield array.tobytes()
 
         return _stream
@@ -259,6 +244,76 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal f
             with h5py.File(f, 'r') as rf:
-                yield msgpack.packb(rf[path][()].tolist(), use_bin_type=True)
+                dataset = rf[path]
+                for array in self._get_dataset_in_chunks(dataset):
+                    yield msgpack.packb(array.tolist(), use_bin_type=True)
 
         return _stream
+
+    def _get_vlen_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+        """A generator to yield lists of lists of a vlen dataset.
+
+        A vlen dataset is a dataset whose elements are variable length
+        arrays.
+
+        Args:
+            dataset: An h5py dataset containing vlen arrays
+            max_chunk_size: The maximum size in bytes to be sent. This
+                            will be used to determine how many arrays
+                            to send. Note that it will always send at
+                            least one array, even if the size exceeds
+                            the max.
+        Yields: Arrays of the dataset
+        """
+        current_size = 0
+        data = []
+        for array in dataset:
+            array_size = array.size * array.dtype.itemsize
+            if len(data) != 0:
+                if current_size + array_size > max_chunk_size:
+                    yield data
+                    data.clear()
+                    current_size = 0
+
+            data.append(array.tolist())
+            current_size += array_size
+
+        yield data
+
+    def _get_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+        """A generator to yield numpy arrays of the dataset.
+
+        Args:
+            dataset: An h5py dataset
+            max_chunk_size: The maximum size in bytes to be sent. This
+                            will be used to determine how many arrays
+                            to send. Note that it will always send at
+                            least one array, even if the size exceeds
+                            the max.
+        Yields: Arrays of the dataset
+        """
+        approx_items_per_array = dataset.size / dataset.shape[0]
+        approx_size_per_array = approx_items_per_array * dataset.dtype.itemsize
+
+        read_size = int(max_chunk_size // approx_size_per_array)
+        if read_size == 0:
+            read_size = 1
+
+        if read_size > dataset.shape[0]:
+            read_size = dataset.shape[0]
+
+        total_read = 0
+        while total_read != dataset.shape[0]:
+            if total_read + read_size > dataset.shape[0]:
+                read_size = dataset.shape[0] - total_read
+
+            shape = (read_size,) + dataset.shape[1:]
+            array = np.empty(shape, dtype=dataset.dtype)
+
+            start = total_read
+            end = start + read_size
+
+            dataset.read_direct(array, source_sel=np.s_[start:end])
+            total_read += read_size
+
+            yield array
