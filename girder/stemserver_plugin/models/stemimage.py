@@ -95,12 +95,12 @@ class StemImage(AccessControlledModel):
         return self.remove(stem_image)
 
     @contextmanager
-    def _get_h5py_file(self, stem_image_id, user):
+    def _open_h5py_file(self, stem_image_id, user):
         """Get an h5py file object of the stem image
 
         This should be used as a context manager as such:
 
-        with self._get_h5py_file(id, user) as f:
+        with self._open_h5py_file(id, user) as f:
             do_stuff_with_file(f)
         """
         stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
@@ -128,7 +128,7 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset(id, user, '/stem/dark', format)
 
     def _get_h5_dataset_shape(self, id, user, path):
-        with self._get_h5py_file(id, user) as f:
+        with self._open_h5py_file(id, user) as f:
             return f[path].shape
 
     def bright_shape(self, id, user):
@@ -141,7 +141,7 @@ class StemImage(AccessControlledModel):
         path = '/electron_events/frames'
 
         # Make sure the scan position is not out of bounds
-        with self._get_h5py_file(id, user) as rf:
+        with self._open_h5py_file(id, user) as rf:
             dataset = rf[path]
             if dataset.shape[0] <= 0:
                 raise RestException('No data found in dataset: ' + path)
@@ -155,7 +155,7 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal id
             nonlocal user
-            with self._get_h5py_file(id, user) as rf:
+            with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 data = dataset[scan_position]
                 yield data.tobytes()
@@ -170,7 +170,7 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal id
             nonlocal user
-            with self._get_h5py_file(id, user) as rf:
+            with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 for data in self._get_vlen_dataset_in_chunks(dataset):
                     yield msgpack.packb(data, use_bin_type=True)
@@ -179,7 +179,7 @@ class StemImage(AccessControlledModel):
 
     def detector_dimensions(self, id, user):
         path = '/electron_events/frames'
-        with self._get_h5py_file(id, user) as rf:
+        with self._open_h5py_file(id, user) as rf:
             dataset = rf[path]
             if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
                 raise RestException('Detector dimensions not found!', 404)
@@ -230,7 +230,7 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal id
             nonlocal user
-            with self._get_h5py_file(id, user) as rf:
+            with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 for array in self._get_dataset_in_chunks(dataset):
                     yield array.tobytes()
@@ -252,7 +252,7 @@ class StemImage(AccessControlledModel):
         def _stream():
             nonlocal id
             nonlocal user
-            with self._get_h5py_file(id, user) as rf:
+            with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 for array in self._get_dataset_in_chunks(dataset):
                     yield msgpack.packb(array.tolist(), use_bin_type=True)
