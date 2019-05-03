@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import os
 
 import h5py
@@ -93,8 +94,15 @@ class StemImage(AccessControlledModel):
 
         return self.remove(stem_image)
 
-    def _get_file(self, stem_image_id, user):
-        """Get a file object of the stem image"""
+    @contextmanager
+    def _get_h5py_file(self, stem_image_id, user):
+        """Get an h5py file object of the stem image
+
+        This should be used as a context manager as such:
+
+        with self._get_h5py_file(id, user) as f:
+            do_stuff_with_file(f)
+        """
         stem_image = self.load(stem_image_id, user=user, level=AccessType.READ)
 
         if not stem_image:
@@ -102,15 +110,14 @@ class StemImage(AccessControlledModel):
 
         girder_file = FileModel().load(stem_image['fileId'],
                                        level=AccessType.READ, user=user)
-        return FileModel().open(girder_file)
+        with FileModel().open(girder_file) as rf:
+            yield h5py.File(rf, 'r')
 
     def _get_h5_dataset(self, id, user, path, format='bytes'):
-        f = self._get_file(id, user)
-
         if format == 'bytes' or format is None:
-            return self._get_h5_dataset_bytes(f, path)
+            return self._get_h5_dataset_bytes(id, user, path)
         elif format == 'msgpack':
-            return self._get_h5_dataset_msgpack(f, path)
+            return self._get_h5_dataset_msgpack(id, user, path)
         else:
             raise RestException('Unknown format: ' + format)
 
@@ -121,8 +128,7 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset(id, user, '/stem/dark', format)
 
     def _get_h5_dataset_shape(self, id, user, path):
-        f = self._get_file(id, user)
-        with h5py.File(f, 'r') as f:
+        with self._get_h5py_file(id, user) as f:
             return f[path].shape
 
     def bright_shape(self, id, user):
@@ -132,11 +138,10 @@ class StemImage(AccessControlledModel):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
 
     def frame(self, id, user, scan_position):
-        f = self._get_file(id, user)
         path = '/electron_events/frames'
 
         # Make sure the scan position is not out of bounds
-        with h5py.File(f, 'r') as rf:
+        with self._get_h5py_file(id, user) as rf:
             dataset = rf[path]
             if dataset.shape[0] <= 0:
                 raise RestException('No data found in dataset: ' + path)
@@ -148,8 +153,9 @@ class StemImage(AccessControlledModel):
         setResponseHeader('Content-Type', 'application/octet-stream')
 
         def _stream():
-            nonlocal f
-            with h5py.File(f, 'r') as rf:
+            nonlocal id
+            nonlocal user
+            with self._get_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 data = dataset[scan_position]
                 yield data.tobytes()
@@ -157,14 +163,14 @@ class StemImage(AccessControlledModel):
         return _stream
 
     def all_frames(self, id, user):
-        f = self._get_file(id, user)
         path = '/electron_events/frames'
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
         def _stream():
-            nonlocal f
-            with h5py.File(f, 'r') as rf:
+            nonlocal id
+            nonlocal user
+            with self._get_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 for data in self._get_vlen_dataset_in_chunks(dataset):
                     yield msgpack.packb(data, use_bin_type=True)
@@ -172,9 +178,8 @@ class StemImage(AccessControlledModel):
         return _stream
 
     def detector_dimensions(self, id, user):
-        f = self._get_file(id, user)
         path = '/electron_events/frames'
-        with h5py.File(f, 'r') as rf:
+        with self._get_h5py_file(id, user) as rf:
             dataset = rf[path]
             if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
                 raise RestException('Detector dimensions not found!', 404)
@@ -210,11 +215,12 @@ class StemImage(AccessControlledModel):
             raise RestException('Current assetstore is not a file system!')
         return assetstore
 
-    def _get_h5_dataset_bytes(self, f, path):
+    def _get_h5_dataset_bytes(self, id, user, path):
         """Get a dataset as bytes.
 
         Args:
-            f: a file path or file object to an h5 file
+            id: The id of the stem image
+            user: The user accessing the stem image
             path: a path in the h5 file to a dataset
 
         Returns: a dataset in bytes
@@ -222,19 +228,21 @@ class StemImage(AccessControlledModel):
         setResponseHeader('Content-Type', 'application/octet-stream')
 
         def _stream():
-            nonlocal f
-            with h5py.File(f, 'r') as f:
-                dataset = f[path]
+            nonlocal id
+            nonlocal user
+            with self._get_h5py_file(id, user) as rf:
+                dataset = rf[path]
                 for array in self._get_dataset_in_chunks(dataset):
                     yield array.tobytes()
 
         return _stream
 
-    def _get_h5_dataset_msgpack(self, f, path):
+    def _get_h5_dataset_msgpack(self, id, user, path):
         """Get a dataset packed with msgpack.
 
         Args:
-            f: a file path or file object to an h5 file
+            id: The id of the stem image
+            user: The user accessing the stem image
             path: a path in the h5 file to a dataset
 
         Returns: a dataset packed with msgpack
@@ -242,8 +250,9 @@ class StemImage(AccessControlledModel):
         setResponseHeader('Content-Type', 'application/octet-stream')
 
         def _stream():
-            nonlocal f
-            with h5py.File(f, 'r') as rf:
+            nonlocal id
+            nonlocal user
+            with self._get_h5py_file(id, user) as rf:
                 dataset = rf[path]
                 for array in self._get_dataset_in_chunks(dataset):
                     yield msgpack.packb(array.tolist(), use_bin_type=True)
