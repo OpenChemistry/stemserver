@@ -137,8 +137,8 @@ class StemImage(AccessControlledModel):
     def dark_shape(self, id, user):
         return self._get_h5_dataset_shape(id, user, '/stem/dark')
 
-    def frame(self, id, user, scan_position):
-        path = '/electron_events/frames'
+    def frame(self, id, user, scan_position, type):
+        path = self._get_path_to_type(type)
 
         # Make sure the scan position is not out of bounds
         with self._open_h5py_file(id, user) as rf:
@@ -162,8 +162,8 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def all_frames(self, id, user):
-        path = '/electron_events/frames'
+    def all_frames(self, id, user, type):
+        path = self._get_path_to_type(type)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -177,18 +177,36 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def detector_dimensions(self, id, user):
-        path = '/electron_events/frames'
+    def detector_dimensions(self, id, user, type):
+        path = self._get_path_to_type(type)
         with self._open_h5py_file(id, user) as rf:
             dataset = rf[path]
-            if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
-                raise RestException('Detector dimensions not found!', 404)
+            if type == 'electron':
+                if 'Nx' not in dataset.attrs or 'Ny' not in dataset.attrs:
+                    raise RestException('Detector dimensions not found!', 404)
 
-            return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
+                return int(dataset.attrs['Nx']), int(dataset.attrs['Ny'])
+            elif type == 'raw':
+                return dataset.shape[1], dataset.shape[2]
 
-    def scan_positions(self, id, user):
-        return self._get_h5_dataset(id, user,
-                                    '/electron_events/scan_positions')
+        raise RestException('In detector_dimensions, unknown type: ' + type)
+
+    def scan_positions(self, id, user, type):
+        path = self._get_path_to_type(type)
+        if type == 'electron':
+            return self._get_h5_dataset(id, user, path)
+        elif type == 'raw':
+            setResponseHeader('Content-Type', 'application/octet-stream')
+
+            def _stream():
+                with self._open_h5py_file(id, user) as rf:
+                    dataset = rf[path]
+                    array = np.array([i for i in range(dataset.shape[0])])
+                    yield array.tobytes()
+
+            return _stream
+
+        raise RestException('In scan_positions, unknown type: ' + type)
 
     def _get_import_folder(self, user):
         """Get the folder where files will be imported.
@@ -326,3 +344,11 @@ class StemImage(AccessControlledModel):
             total_read += read_size
 
             yield array
+
+    def _get_path_to_type(self, type):
+        """Get the path to the dataset for the given type"""
+        if type == 'electron':
+            return '/electron_events/frames'
+        elif type == 'raw':
+            return '/stem/frames'
+        raise RestException('Unknown type: ' + type)
