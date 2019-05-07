@@ -350,5 +350,5 @@ class StemImage(AccessControlledModel):
         if type == 'electron':
             return '/electron_events/frames'
         elif type == 'raw':
-            return '/stem/frames'
+            return '/frames'
         raise RestException('Unknown type: ' + type)
