@@ -162,8 +162,13 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def all_frames(self, id, user, type):
+    def all_frames(self, id, user, type, limit=None, offset=None):
         path = self._get_path_to_type(type)
+
+        # Ensure limit and offset are reasonable
+        with self._open_h5py_file(id, user) as rf:
+            limit, offset = self._check_limit_and_offset(rf[path], limit,
+                                                         offset)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
 
@@ -172,7 +177,8 @@ class StemImage(AccessControlledModel):
             nonlocal user
             with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
-                for data in self._get_vlen_dataset_in_chunks(dataset):
+                for data in self._get_vlen_dataset_in_chunks(dataset, limit,
+                                                             offset):
                     yield msgpack.packb(data, use_bin_type=True)
 
         return _stream
@@ -277,7 +283,8 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def _get_vlen_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+    def _get_vlen_dataset_in_chunks(self, dataset, limit, offset,
+                                    max_chunk_size=64000):
         """A generator to yield lists of lists of a vlen dataset.
 
         A vlen dataset is a dataset whose elements are variable length
@@ -285,6 +292,8 @@ class StemImage(AccessControlledModel):
 
         Args:
             dataset: An h5py dataset containing vlen arrays
+            limit: Limit the number of arrays to be obtained
+            offset: Offset arrays to be obtained
             max_chunk_size: The maximum size in bytes to be sent. This
                             will be used to determine how many arrays
                             to send. Note that it will always send at
@@ -292,9 +301,13 @@ class StemImage(AccessControlledModel):
                             the max.
         Yields: Arrays of the dataset
         """
+
+        num_arrays = min(limit, dataset.shape[0])
+
         current_size = 0
         data = []
-        for array in dataset:
+        for i in range(num_arrays):
+            array = dataset[offset + i]
             array_size = array.size * array.dtype.itemsize
             if len(data) != 0:
                 if current_size + array_size > max_chunk_size:
@@ -352,3 +365,32 @@ class StemImage(AccessControlledModel):
         elif type == 'raw':
             return '/frames'
         raise RestException('Unknown type: ' + type)
+
+    def _check_limit_and_offset(self, dataset, limit, offset):
+        """Check that the limit and offset are reasonable
+
+        This function does sanity checks and raises an exception if
+        an issue is found.
+
+        This function also returns the limit and offset as integers (and
+        modifies them if they were set to `None`).
+        """
+
+        if limit is None:
+            limit = dataset.shape[0]
+
+        if offset is None:
+            offset = 0
+
+        if int(offset) < 0:
+            raise RestException('Offset cannot be less than zero')
+
+        if int(offset) >= dataset.shape[0]:
+            msg = ('Offset is out of bounds (cannot be ' +
+                   str(dataset.shape[0]) + ' or greater)')
+            raise RestException(msg)
+
+        if int(limit) <= 0:
+            raise RestException('Limit cannot be less than one')
+
+        return int(limit), int(offset)

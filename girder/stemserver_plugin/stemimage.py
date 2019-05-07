@@ -105,9 +105,16 @@ class StemImage(Resource):
         .param('type',
                'The type of data to use. Options: electron (default) or raw',
                default='electron')
+        .param('limit',
+               'Limit the number of diffractograms to prevent timeout',
+               required=False)
+        .param('offset',
+               'Offset to use with the limit',
+               required=False)
     )
-    def all_frames(self, id, type):
-        return self._model.all_frames(id, getCurrentUser(), type)
+    def all_frames(self, id, type, limit, offset):
+        return self._model.all_frames(id, getCurrentUser(), type, limit,
+                                      offset)
 
     @access.user
     @autoDescribeRoute(
