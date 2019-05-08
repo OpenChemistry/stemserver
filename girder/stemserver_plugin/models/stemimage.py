@@ -183,7 +183,7 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def detector_dimensions(self, id, user, type):
+    def frame_shape(self, id, user, type):
         path = self._get_path_to_type(type)
         with self._open_h5py_file(id, user) as rf:
             dataset = rf[path]
@@ -195,7 +195,7 @@ class StemImage(AccessControlledModel):
             elif type == 'raw':
                 return dataset.shape[1], dataset.shape[2]
 
-        raise RestException('In detector_dimensions, unknown type: ' + type)
+        raise RestException('In frame_shape, unknown type: ' + type)
 
     def scan_positions(self, id, user, type):
         path = self._get_path_to_type(type)

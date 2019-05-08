@@ -20,8 +20,7 @@ class StemImage(Resource):
         self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
         self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
         self.route('GET', (':id', 'frames'), self.all_frames)
-        self.route('GET', (':id', 'frames', 'detectorDimensions'),
-                   self.detector_dimensions)
+        self.route('GET', (':id', 'frames', 'shape'), self.frame_shape)
         self.route('GET', (':id', 'scanPositions'), self.scan_positions)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
@@ -124,8 +123,8 @@ class StemImage(Resource):
                'The type of data to use. Options: electron (default) or raw',
                default='electron')
     )
-    def detector_dimensions(self, id, type):
-        return self._model.detector_dimensions(id, getCurrentUser(), type)
+    def frame_shape(self, id, type):
+        return self._model.frame_shape(id, getCurrentUser(), type)
 
     @access.user
     @autoDescribeRoute(
