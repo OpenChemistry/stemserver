@@ -89,36 +89,54 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get a frame of an image.')
         .param('id', 'The id of the stem image.')
-        .param('scan_position', 'The scan position of the frame.',
-               dataType='integer')
+        .param('scanPosition', 'The scan position of the frame.')
+        .param('type',
+               'The type of data to use. Options: electron (default) or raw',
+               default='electron')
         .errorResponse('Scan position is out of bounds')
     )
-    def frame(self, id, scan_position):
-        return self._model.frame(id, getCurrentUser(), scan_position)
+    def frame(self, id, scanPosition, type):
+        return self._model.frame(id, getCurrentUser(), int(scanPosition), type)
 
     @access.user
     @autoDescribeRoute(
         Description('Get all frames of an image (msgpack format only).')
         .param('id', 'The id of the stem image.')
+        .param('type',
+               'The type of data to use. Options: electron (default) or raw',
+               default='electron')
+        .param('limit',
+               'Limit the number of diffractograms to prevent timeout',
+               required=False)
+        .param('offset',
+               'Offset to use with the limit',
+               required=False)
     )
-    def all_frames(self, id):
-        return self._model.all_frames(id, getCurrentUser())
+    def all_frames(self, id, type, limit, offset):
+        return self._model.all_frames(id, getCurrentUser(), type, limit,
+                                      offset)
 
     @access.user
     @autoDescribeRoute(
         Description('Get the detector dimensions of an image.')
         .param('id', 'The id of the stem image.')
+        .param('type',
+               'The type of data to use. Options: electron (default) or raw',
+               default='electron')
     )
-    def detector_dimensions(self, id):
-        return self._model.detector_dimensions(id, getCurrentUser())
+    def detector_dimensions(self, id, type):
+        return self._model.detector_dimensions(id, getCurrentUser(), type)
 
     @access.user
     @autoDescribeRoute(
         Description('Get the scan positions of an image.')
         .param('id', 'The id of the stem image.')
+        .param('type',
+               'The type of data to use. Options: electron (default) or raw',
+               default='electron')
     )
-    def scan_positions(self, id):
-        return self._model.scan_positions(id, getCurrentUser())
+    def scan_positions(self, id, type):
+        return self._model.scan_positions(id, getCurrentUser(), type)
 
     @access.user(scope=TokenScope.DATA_WRITE)
     @autoDescribeRoute(
