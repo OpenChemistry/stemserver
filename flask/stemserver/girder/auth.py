@@ -8,7 +8,7 @@ GIRDER_BASE_URL = 'http://localhost:8081/api/v1'
 
 class GirderUser(UserMixin):
     def __init__(self, girder_token, user):
-        self._user = user
+        self.girder_user = user
         self.id = girder_token
 
 def _fetch_girder_user_from_token(girder_token):
