@@ -8,7 +8,7 @@ class GirderUser(UserMixin):
         self.girder_user = user
         self.id = girder_token
 
-def _fetch_girder_user_from_token(girder_token):
+def fetch_girder_user_from_token(girder_token):
     headers = {
         'Girder-Token': girder_token
     }
@@ -19,7 +19,7 @@ def _fetch_girder_user_from_token(girder_token):
 
     return GirderUser(girder_token, user)
 
-def _fetch_girder_user_from_api_key(girder_api_key):
+def fetch_girder_user_from_api_key(girder_api_key):
     params = {
         'key': girder_api_key
     }
@@ -32,7 +32,7 @@ def _fetch_girder_user_from_api_key(girder_api_key):
     r.raise_for_status()
     r = r.json()
 
-    return _fetch_girder_user_from_token(r['authToken']['token'])
+    return fetch_girder_user_from_token(r['authToken']['token'])
 
 auth_blueprint = Blueprint('auth_blueprint', __name__)
 
@@ -42,9 +42,9 @@ def login():
     r = r if r is not None else {}
 
     if 'girderToken' in r:
-        user = _fetch_girder_user_from_token(r['girderToken'])
+        user = fetch_girder_user_from_token(r['girderToken'])
     elif 'girderApiKey' in r:
-        user = _fetch_girder_user_from_api_key(r['girderApiKey'])
+        user = fetch_girder_user_from_api_key(r['girderApiKey'])
     else:
         response = jsonify({
             'message': "'girderToken' or 'girderApiKey' is required."

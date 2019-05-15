@@ -5,7 +5,7 @@ from flask_login import LoginManager, login_required, login_user
 import glob
 import os
 
-from stemserver.girder.auth import _fetch_girder_user_from_token, auth_blueprint
+from stemserver.girder.auth import fetch_girder_user_from_token, auth_blueprint
 from stemserver.socketio import endpoints as socketio_endpoints
 
 app = Flask(__name__)
@@ -28,7 +28,7 @@ app.register_blueprint(auth_blueprint)
 # Girder authentication
 @login_manager.user_loader
 def load_user(girder_token):
-    return _fetch_girder_user_from_token(girder_token)
+    return fetch_girder_user_from_token(girder_token)
 
 # Setup the socketio events
 socketio_endpoints.init(socketio)
