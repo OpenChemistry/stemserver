@@ -28,22 +28,17 @@ def init(socketio):
     @socketio.on('stem.bright', namespace='/stem')
     @auth_required
     def bright(data):
-        emit('stem.bright', data, room=current_room())
+        emit('stem.bright', data, room=current_room(), include_self=False)
 
     @socketio.on('stem.dark', namespace='/stem')
     @auth_required
     def dark(data):
-        emit('stem.dark', data, room=current_room())
-
-    @socketio.on('subscribe', namespace='/stem')
-    @auth_required
-    def subscribe(topic):
-        join_room(topic)
+        emit('stem.dark', data, room=current_room(), include_self=False)
 
     @socketio.on('stem.size', namespace='/stem')
     @auth_required
     def size(data):
-        emit('stem.size', data, broadcast=True, include_self=False)
+        emit('stem.size', data, room=current_room(), include_self=False)
 
     @socketio.on('disconnect', namespace='/stem')
     @auth_required
