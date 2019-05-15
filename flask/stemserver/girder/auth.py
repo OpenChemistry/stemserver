@@ -1,10 +1,7 @@
-from flask import Flask, Blueprint, abort, request
+from flask import Flask, Blueprint, abort, request, current_app
 from flask.json import jsonify
 from flask_login import LoginManager, UserMixin, login_required, login_user
 import requests
-
-
-GIRDER_BASE_URL = 'http://localhost:8081/api/v1'
 
 class GirderUser(UserMixin):
     def __init__(self, girder_token, user):
@@ -15,7 +12,7 @@ def _fetch_girder_user_from_token(girder_token):
     headers = {
         'Girder-Token': girder_token
     }
-    r = requests.get('%s/user/me' % GIRDER_BASE_URL, headers=headers)
+    r = requests.get('%s/user/me' % current_app.config['GIRDER_API_URL'], headers=headers)
     user = r.json()
     if user is None:
         return None
@@ -26,7 +23,7 @@ def _fetch_girder_user_from_api_key(girder_api_key):
     params = {
         'key': girder_api_key
     }
-    r = requests.post('%s/api_key/token' % GIRDER_BASE_URL, params=params)
+    r = requests.post('%s/api_key/token' % current_app.config['GIRDER_API_URL'], params=params)
 
     # Girder returns 400 for invalid key
     if r.status_code == 400:

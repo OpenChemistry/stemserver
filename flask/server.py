@@ -9,6 +9,15 @@ from stemserver.girder.auth import _fetch_girder_user_from_token, auth_blueprint
 from stemserver.socketio import endpoints as socketio_endpoints
 
 app = Flask(__name__)
+app.config.from_mapping(
+    SECRET_KEY='dev',
+    GIRDER_API_URL='http://localhost:8080/api/v1'
+)
+app.config.from_envvar('STEMSERVER_CONFIG', silent=True)
+
+if app.config['SECRET_KEY'] == 'dev':
+    app.logger.warning('Using development SECRET_KEY, DO NOT use in production!!!')
+
 app.secret_key = os.environ.get('SECRET_KEY')
 login_manager = LoginManager()
 login_manager.init_app(app)
