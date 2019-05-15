@@ -1,0 +1,4 @@
+python-socketio[asyncio_client]
+numpy
+click
+aiohttp
