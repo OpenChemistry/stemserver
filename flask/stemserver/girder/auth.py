@@ -23,11 +23,15 @@ def _fetch_girder_user_from_token(girder_token):
     return GirderUser(girder_token, user)
 
 def _fetch_girder_user_from_api_key(girder_api_key):
-    print(girder_api_key)
     params = {
         'key': girder_api_key
     }
     r = requests.post('%s/api_key/token' % GIRDER_BASE_URL, params=params)
+
+    # Girder returns 400 for invalid key
+    if r.status_code == 400:
+        return None
+
     r.raise_for_status()
     r = r.json()
 
