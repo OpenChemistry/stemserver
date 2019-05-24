@@ -21,6 +21,8 @@ class StemImage(AccessControlledModel):
 
     IMPORT_FOLDER = 'stem_images'
 
+    ALLOWED_FORMATS = ['bytes', 'msgpack']
+
     def __init__(self):
         super(StemImage, self).__init__()
 
@@ -121,21 +123,42 @@ class StemImage(AccessControlledModel):
         else:
             raise RestException('Unknown format: ' + format)
 
-    def bright(self, id, user, format):
-        return self._get_h5_dataset(id, user, '/stem/bright', format)
+    def image_names(self, id, user):
+        path = '/stem/images'
+        with self._open_h5py_file(id, user) as rf:
+            return rf[path].attrs['names'].tolist()
 
-    def dark(self, id, user, format):
-        return self._get_h5_dataset(id, user, '/stem/dark', format)
+    def image(self, id, user, format, name):
+        path = '/stem/images'
 
-    def _get_h5_dataset_shape(self, id, user, path):
-        with self._open_h5py_file(id, user) as f:
-            return f[path].shape
+        if format is None:
+            format = 'bytes'
 
-    def bright_shape(self, id, user):
-        return self._get_h5_dataset_shape(id, user, '/stem/bright')
+        if format not in StemImage.ALLOWED_FORMATS:
+            raise RestException('Unknown format: ' + format)
 
-    def dark_shape(self, id, user):
-        return self._get_h5_dataset_shape(id, user, '/stem/dark')
+        # Get the index of the data from the name
+        with self._open_h5py_file(id, user) as rf:
+            index = self._get_image_index_from_name(rf[path], name)
+
+        setResponseHeader('Content-Type', 'application/octet-stream')
+        def _stream():
+            with self._open_h5py_file(id, user) as rf:
+                dataset = rf[path][index]
+                for array in self._get_vlen_dataset_in_chunks(dataset):
+                    if format == 'bytes':
+                        yield np.array(array, copy=False).tobytes()
+                    elif format == 'msgpack':
+                        yield msgpack.packb(array, use_bin_type=True)
+
+        return _stream
+
+    def image_shape(self, id, user, name):
+        path = '/stem/images'
+        with self._open_h5py_file(id, user) as rf:
+            dataset = rf[path]
+            index = self._get_image_index_from_name(rf[path], name)
+            return dataset[index].shape
 
     def frame(self, id, user, scan_position, type):
         path = self._get_path_to_type(type)
@@ -283,12 +306,14 @@ class StemImage(AccessControlledModel):
 
         return _stream
 
-    def _get_vlen_dataset_in_chunks(self, dataset, limit, offset,
+    def _get_vlen_dataset_in_chunks(self, dataset, limit=1e6, offset=0,
                                     max_chunk_size=64000):
         """A generator to yield lists of lists of a vlen dataset.
 
         A vlen dataset is a dataset whose elements are variable length
         arrays.
+
+        This will also work if `dataset` is a numpy array.
 
         Args:
             dataset: An h5py dataset containing vlen arrays
@@ -394,3 +419,15 @@ class StemImage(AccessControlledModel):
             raise RestException('Limit cannot be less than one')
 
         return int(limit), int(offset)
+
+    def _get_image_index_from_name(self, dataset, name):
+        """Get the index of an image from a name.
+
+        This assumes that dataset.shape[0] is the index for the images,
+        and that the dataset has a `names` attribute that contains the
+        names of the images.
+        """
+        try:
+            return dataset.attrs['names'].tolist().index(name)
+        except ValueError:
+            raise RestException(name + ' is not in ' + dataset.name)
