@@ -92,6 +92,12 @@ services:
       - app-girder
 
 volumes:
-   db-mongodb.stem:
-   app-assetstore.stem:
-   app-flask.stem:
+  app-assetstore.stem:
+    external: true
+    driver: rancher-nfs
+  db-mongodb.stem:
+    external: true
+    driver: rancher-nfs
+  app-flask.stem:
+    external: true
+    driver: rancher-nfs
