@@ -1,0 +1,17 @@
+version: '2'
+services:
+  web-dhparams-setup:
+    image:  ubuntu/18.0.4
+    cap_drop:
+      - ALL
+    volumes:
+      - web-certs.oc:/etc/letsencrypt
+      - web-certbot-webroot.oc:/data/letsencrypt
+    
+volumes:
+  web-certs.stem:
+    external: true
+    driver: rancher-nfs
+  web-certbot-webroot.stem:
+    external: true
+    driver: rancher-nfs
