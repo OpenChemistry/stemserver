@@ -6,7 +6,7 @@ import numpy as np
 import click
 import aiohttp
 
-async def job(i, n, values, client):
+async def node_job(i, n, values, client):
     await asyncio.sleep(2 * random.random())
     size = len(values) // n
     start = i * size
@@ -49,29 +49,31 @@ async def main(url, n, girder_api_key):
 
     client = socketio.AsyncClient()
 
-    @client.on('connect')
+    @client.on('connect', namespace='/stem')
     async def on_connect():
         print('Connected')
+        await client.emit('stem.worker_connected', namespace='/stem')
 
+    @client.on('stem.generate', namespace='/stem')
+    async def on_generate(parameters):
+        await client.emit('stem.size',  {'width': str(width), 'height': str(height)}, namespace='/stem')
+
+        tasks = []
+        for i in range(n):
+            tasks.append(asyncio.create_task(node_job(i, n, values, client)))
+
+        await asyncio.gather(*tasks)
+
+    @client.on('disconnect', namespace='/stem')
+    async def on_disconnect():
+        print('disconnected')
 
     headers = {
         'Cookie': cookie
     }
     await client.connect(url, namespaces=['/stem'], transports=['websocket'], headers=headers)
 
-    iteration = 0
-    while True:
-        await client.emit('stem.size',  {'width': str(width), 'height': str(height)}, namespace='/stem')
-        tasks = []
-
-        for i in range(n):
-            tasks.append(asyncio.create_task(job(i, n, values, client)))
-
-        await asyncio.gather(*tasks)
-
-        iteration += 1
-
-    await client.disconnect()
+    # await client.disconnect()
 
 @click.command()
 @click.option('-u', '--flask-url', default='http://localhost:5000', help='URL for the flask server')
@@ -79,7 +81,12 @@ async def main(url, n, girder_api_key):
               help='[default: GIRDER_API_KEY env. variable]', required=True)
 @click.option('-n', '--num-tasks', type=int, default=1, help='number of tasks')
 def cli(flask_url, girder_api_key, num_tasks):
-    asyncio.run(main(flask_url, num_tasks, girder_api_key))
+    loop = asyncio.get_event_loop()
+    try:
+        asyncio.ensure_future(main(flask_url, num_tasks, girder_api_key))
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == '__main__':
     cli()
