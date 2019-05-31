@@ -137,9 +137,16 @@ class StemImage(AccessControlledModel):
         if format not in StemImage.ALLOWED_FORMATS:
             raise RestException('Unknown format: ' + format)
 
-        # Get the index of the data from the name
         with self._open_h5py_file(id, user) as rf:
-            index = self._get_image_index_from_name(rf[path], name)
+            # Check if the name is an integer. If so, assume it is
+            # an index and not a name.
+            if self._str_is_int(name):
+                index = int(name)
+                if index >= len(rf[path]):
+                    raise RestException('Index is too large')
+            else:
+                # Get the index of the data from the name
+                index = self._get_image_index_from_name(rf[path], name)
 
         setResponseHeader('Content-Type', 'application/octet-stream')
         def _stream():
@@ -157,7 +164,14 @@ class StemImage(AccessControlledModel):
         path = '/stem/images'
         with self._open_h5py_file(id, user) as rf:
             dataset = rf[path]
-            index = self._get_image_index_from_name(rf[path], name)
+
+            if self._str_is_int(name):
+                index = int(name)
+                if index >= len(dataset):
+                    raise RestException('Index is too large')
+            else:
+                index = self._get_image_index_from_name(dataset, name)
+
             return dataset[index].shape
 
     def frame(self, id, user, scan_position, type):
@@ -431,3 +445,11 @@ class StemImage(AccessControlledModel):
             return dataset.attrs['names'].tolist().index(name)
         except ValueError:
             raise RestException(name + ' is not in ' + dataset.name)
+
+    def _str_is_int(self, s):
+        """A simple function to check if a string is an int"""
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False

@@ -55,7 +55,7 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get a stem image.')
         .param('id', 'The id of the stem image.')
-        .param('name', 'The name of the stem image.')
+        .param('name', 'The name or index of the stem image.')
         .param('format',
                'The format with which to send the data over http. '
                'Currently either bytes (default) or msgpack.',
@@ -68,7 +68,7 @@ class StemImage(Resource):
     @autoDescribeRoute(
         Description('Get the shape of a stem image.')
         .param('id', 'The id of the stem image.')
-        .param('name', 'The name of the stem image.')
+        .param('name', 'The name or index of the stem image.')
     )
     def image_shape(self, id, name):
         return self._model.image_shape(id, getCurrentUser(), name)
