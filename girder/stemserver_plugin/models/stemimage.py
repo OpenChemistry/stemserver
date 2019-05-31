@@ -115,11 +115,11 @@ class StemImage(AccessControlledModel):
         with FileModel().open(girder_file) as rf:
             yield h5py.File(rf, 'r')
 
-    def _get_h5_dataset(self, id, user, path, format='bytes'):
+    def _get_h5_dataset(self, id, user, path, position=None, format='bytes'):
         if format == 'bytes' or format is None:
-            return self._get_h5_dataset_bytes(id, user, path)
+            return self._get_h5_dataset_bytes(id, user, path, position)
         elif format == 'msgpack':
-            return self._get_h5_dataset_msgpack(id, user, path)
+            return self._get_h5_dataset_msgpack(id, user, path, position)
         else:
             raise RestException('Unknown format: ' + format)
 
@@ -174,7 +174,7 @@ class StemImage(AccessControlledModel):
 
             return dataset[index].shape
 
-    def frame(self, id, user, scan_position, type):
+    def frame(self, id, user, scan_position, type, format):
         path = self._get_path_to_type(type)
 
         # Make sure the scan position is not out of bounds
@@ -187,17 +187,7 @@ class StemImage(AccessControlledModel):
                        'than the max: ' + str(dataset.shape[0] - 1))
                 raise RestException(msg)
 
-        setResponseHeader('Content-Type', 'application/octet-stream')
-
-        def _stream():
-            nonlocal id
-            nonlocal user
-            with self._open_h5py_file(id, user) as rf:
-                dataset = rf[path]
-                data = dataset[scan_position]
-                yield data.tobytes()
-
-        return _stream
+        return self._get_h5_dataset(id, user, path, position=scan_position, format=format)
 
     def all_frames(self, id, user, type, limit=None, offset=None):
         path = self._get_path_to_type(type)
@@ -276,7 +266,7 @@ class StemImage(AccessControlledModel):
             raise RestException('Current assetstore is not a file system!')
         return assetstore
 
-    def _get_h5_dataset_bytes(self, id, user, path):
+    def _get_h5_dataset_bytes(self, id, user, path, position=None):
         """Get a dataset as bytes.
 
         Args:
@@ -293,12 +283,12 @@ class StemImage(AccessControlledModel):
             nonlocal user
             with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
-                for array in self._get_dataset_in_chunks(dataset):
+                for array in self._get_dataset_in_chunks(dataset, array_position=position):
                     yield array.tobytes()
 
         return _stream
 
-    def _get_h5_dataset_msgpack(self, id, user, path):
+    def _get_h5_dataset_msgpack(self, id, user, path, position=None):
         """Get a dataset packed with msgpack.
 
         Args:
@@ -315,7 +305,7 @@ class StemImage(AccessControlledModel):
             nonlocal user
             with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
-                for array in self._get_dataset_in_chunks(dataset):
+                for array in self._get_dataset_in_chunks(dataset, array_position=position):
                     yield msgpack.packb(array.tolist(), use_bin_type=True)
 
         return _stream
@@ -359,11 +349,14 @@ class StemImage(AccessControlledModel):
 
         yield data
 
-    def _get_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+    def _get_dataset_in_chunks(self, dataset, array_position=None, max_chunk_size=64000):
         """A generator to yield numpy arrays of the dataset.
 
         Args:
             dataset: An h5py dataset
+            array_position: The index of the array in the dataset to be
+                            yielded. If array_position is None, yield all
+                            the arrays in the dataset
             max_chunk_size: The maximum size in bytes to be sent. This
                             will be used to determine how many arrays
                             to send. Note that it will always send at
@@ -371,25 +364,35 @@ class StemImage(AccessControlledModel):
                             the max.
         Yields: Arrays of the dataset
         """
-        approx_items_per_array = dataset.size / dataset.shape[0]
-        approx_size_per_array = approx_items_per_array * dataset.dtype.itemsize
+        if array_position is None:
+            approx_items_per_array = dataset.size / dataset.shape[0]
+            approx_size_per_array = approx_items_per_array * dataset.dtype.itemsize
 
-        read_size = int(max_chunk_size // approx_size_per_array)
-        if read_size == 0:
+            read_size = int(max_chunk_size // approx_size_per_array)
+            if read_size == 0:
+                read_size = 1
+
+            if read_size > dataset.shape[0]:
+                read_size = dataset.shape[0]
+            read_limit = dataset.shape[0]
+            first = 0
+        else:
             read_size = 1
-
-        if read_size > dataset.shape[0]:
-            read_size = dataset.shape[0]
+            read_limit = 1
+            first = array_position
 
         total_read = 0
-        while total_read != dataset.shape[0]:
-            if total_read + read_size > dataset.shape[0]:
-                read_size = dataset.shape[0] - total_read
+        while total_read < read_limit:
+            if total_read + read_size > read_limit:
+                read_size = read_limit - total_read
 
-            shape = (read_size,) + dataset.shape[1:]
+            if read_size == 1:
+                shape = dataset.shape[1:]
+            else:
+                shape = (read_size,) + dataset.shape[1:]
             array = np.empty(shape, dtype=dataset.dtype)
 
-            start = total_read
+            start = first + total_read
             end = start + read_size
 
             dataset.read_direct(array, source_sel=np.s_[start:end])
