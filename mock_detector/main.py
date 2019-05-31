@@ -54,8 +54,8 @@ async def main(url, n, girder_api_key):
         print('Connected')
         await client.emit('stem.worker_connected', namespace='/stem')
 
-    @client.on('stem.generate', namespace='/stem')
-    async def on_generate(parameters):
+    @client.on('stem.execute', namespace='/stem')
+    async def on_execute(parameters):
         await client.emit('stem.size',  {'width': str(width), 'height': str(height)}, namespace='/stem')
 
         tasks = []

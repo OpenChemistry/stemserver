@@ -30,10 +30,10 @@ def init(socketio):
         else:
             return False
 
-    @socketio.on('stem.generate', namespace='/stem')
+    @socketio.on('stem.execute', namespace='/stem')
     @auth_required
-    def generate(params):
-        emit('stem.generate', params, room=current_room(), include_self=False)
+    def execute(params):
+        emit('stem.execute', params, room=current_room(), include_self=False)
 
     @socketio.on('stem.worker_connected', namespace='/stem')
     @auth_required
