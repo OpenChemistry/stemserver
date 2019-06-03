@@ -14,10 +14,9 @@ class StemImage(Resource):
         super(StemImage, self).__init__()
         self.resourceName = 'stem_images'
         self.route('GET', (), self.find)
-        self.route('GET', (':id', 'bright'), self.bright)
-        self.route('GET', (':id', 'dark'), self.dark)
-        self.route('GET', (':id', 'bright', 'shape'), self.bright_shape)
-        self.route('GET', (':id', 'dark', 'shape'), self.dark_shape)
+        self.route('GET', (':id', 'names'), self.image_names)
+        self.route('GET', (':id', ':name'), self.image)
+        self.route('GET', (':id', ':name', 'shape'), self.image_shape)
         self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
         self.route('GET', (':id', 'frames'), self.all_frames)
         self.route('GET', (':id', 'frames', 'shape'), self.frame_shape)
@@ -46,43 +45,33 @@ class StemImage(Resource):
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the bright field of a stem image.')
+        Description('Get the names of the available stem images.')
         .param('id', 'The id of the stem image.')
+    )
+    def image_names(self, id):
+        return self._model.image_names(id, getCurrentUser())
+
+    @access.user
+    @autoDescribeRoute(
+        Description('Get a stem image.')
+        .param('id', 'The id of the stem image.')
+        .param('name', 'The name or index of the stem image.')
         .param('format',
                'The format with which to send the data over http. '
                'Currently either bytes (default) or msgpack.',
                required=False)
     )
-    def bright(self, id, format):
-        return self._model.bright(id, getCurrentUser(), format)
+    def image(self, id, format, name):
+        return self._model.image(id, getCurrentUser(), format, name)
 
     @access.user
     @autoDescribeRoute(
-        Description('Get the dark field of a stem image.')
+        Description('Get the shape of a stem image.')
         .param('id', 'The id of the stem image.')
-        .param('format',
-               'The format with which to send the data over http. '
-               'Currently either bytes (default) or msgpack',
-               required=False)
+        .param('name', 'The name or index of the stem image.')
     )
-    def dark(self, id, format):
-        return self._model.dark(id, getCurrentUser(), format)
-
-    @access.user
-    @autoDescribeRoute(
-        Description('Get the shape of the bright field of a stem image.')
-        .param('id', 'The id of the stem image.')
-    )
-    def bright_shape(self, id):
-        return self._model.bright_shape(id, getCurrentUser())
-
-    @access.user
-    @autoDescribeRoute(
-        Description('Get the shape of the dark field of a stem image.')
-        .param('id', 'The id of the stem image.')
-    )
-    def dark_shape(self, id):
-        return self._model.dark_shape(id, getCurrentUser())
+    def image_shape(self, id, name):
+        return self._model.image_shape(id, getCurrentUser(), name)
 
     @access.user
     @autoDescribeRoute(
