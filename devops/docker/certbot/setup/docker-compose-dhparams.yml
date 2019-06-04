@@ -1,12 +1,13 @@
 version: '2'
 services:
   web-dhparams-setup:
-    image:  ubuntu/18.0.4
+    image: centurylink/openssl
+    command: tail -f /dev/null
     cap_drop:
       - ALL
     volumes:
-      - web-certs.oc:/etc/letsencrypt
-      - web-certbot-webroot.oc:/data/letsencrypt
+      - web-certs.stem:/etc/letsencrypt
+      - web-certbot-webroot.stem:/data/letsencrypt
     
 volumes:
   web-certs.stem:
