@@ -2,3 +2,34 @@ version: '2'
 services:
   app-flask:
     retain_ip: true
+
+  web-nginx:
+    image: openchemistry/stemserver-nginx-nersc:latest
+    labels:
+      io.rancher.container.pull_image: always
+      cron.schedule: 0  8  *  *  *
+      cron.action: restart
+    volumes:
+      - web-certs.stem:/etc/letsencrypt
+      - web-certbot-webroot.stem:/data/letsencrypt
+      - web-nginx-config.stem:/data/nginx
+
+volumes:
+  app-assetstore.stem:
+    external: true
+    driver: rancher-nfs
+  db-mongodb.stem:
+    external: true
+    driver: rancher-nfs
+  app-flask.stem:
+    external: true
+    driver: rancher-nfs
+  web-certs.stem:
+    external: true
+    driver: rancher-nfs
+  web-certbot-webroot.stem:
+    external: true
+    driver: rancher-nfs
+  web-nginx-config.stem:
+      external: true
+      driver: rancher-nfs
