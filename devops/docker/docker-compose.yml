@@ -72,8 +72,6 @@ services:
 
   web-nginx:
     image: openchemistry/stemserver-nginx:latest
-    labels:
-      io.rancher.container.pull_image: always
     cap_drop:
       - ALL
     cap_add:
@@ -84,20 +82,13 @@ services:
       - NET_BIND_SERVICE
     group_add:
       - nginx
-    ports:
-      - 80:80
     depends_on:
       - web-client
       - app-flask
       - app-girder
+ 
 
 volumes:
   app-assetstore.stem:
-    external: true
-    driver: rancher-nfs
   db-mongodb.stem:
-    external: true
-    driver: rancher-nfs
   app-flask.stem:
-    external: true
-    driver: rancher-nfs

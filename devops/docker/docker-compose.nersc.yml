@@ -9,24 +9,10 @@ services:
       io.rancher.container.pull_image: always
       cron.schedule: 0  8  *  *  *
       cron.action: restart
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - DAC_OVERRIDE
-      - SETUID
-      - SETGID
-      - NET_BIND_SERVICE
-    group_add:
-      - nginx
     volumes:
       - web-certs.stem:/etc/letsencrypt
       - web-certbot-webroot.stem:/data/letsencrypt
-    depends_on:
-      - web-client
-      - app-flask
-      - app-girder
-      
+      - web-nginx-config.stem:/data/nginx
       
 volumes:
   app-assetstore.stem:
@@ -42,5 +28,8 @@ volumes:
     external: true
     driver: rancher-nfs
   web-certbot-webroot.stem:
+    external: true
+    driver: rancher-nfs
+web-nginx-config.stem:
     external: true
     driver: rancher-nfs
