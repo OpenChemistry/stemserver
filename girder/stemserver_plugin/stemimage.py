@@ -81,10 +81,14 @@ class StemImage(Resource):
         .param('type',
                'The type of data to use. Options: electron (default) or raw',
                default='electron')
+        .param('format',
+               'The format with which to send the data over http. '
+               'Currently either bytes (default) or msgpack',
+               required=False)
         .errorResponse('Scan position is out of bounds')
     )
-    def frame(self, id, scanPosition, type):
-        return self._model.frame(id, getCurrentUser(), int(scanPosition), type)
+    def frame(self, id, scanPosition, type, format):
+        return self._model.frame(id, getCurrentUser(), int(scanPosition), type, format)
 
     @access.user
     @autoDescribeRoute(

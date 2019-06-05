@@ -115,11 +115,11 @@ class StemImage(AccessControlledModel):
         with FileModel().open(girder_file) as rf:
             yield h5py.File(rf, 'r')
 
-    def _get_h5_dataset(self, id, user, path, format='bytes'):
+    def _get_h5_dataset(self, id, user, path, offset=None, limit=None, format='bytes'):
         if format == 'bytes' or format is None:
-            return self._get_h5_dataset_bytes(id, user, path)
+            return self._get_h5_dataset_bytes(id, user, path, offset, limit)
         elif format == 'msgpack':
-            return self._get_h5_dataset_msgpack(id, user, path)
+            return self._get_h5_dataset_msgpack(id, user, path, offset, limit)
         else:
             raise RestException('Unknown format: ' + format)
 
@@ -174,7 +174,7 @@ class StemImage(AccessControlledModel):
 
             return dataset[index].shape
 
-    def frame(self, id, user, scan_position, type):
+    def frame(self, id, user, scan_position, type, format):
         path = self._get_path_to_type(type)
 
         # Make sure the scan position is not out of bounds
@@ -187,17 +187,7 @@ class StemImage(AccessControlledModel):
                        'than the max: ' + str(dataset.shape[0] - 1))
                 raise RestException(msg)
 
-        setResponseHeader('Content-Type', 'application/octet-stream')
-
-        def _stream():
-            nonlocal id
-            nonlocal user
-            with self._open_h5py_file(id, user) as rf:
-                dataset = rf[path]
-                data = dataset[scan_position]
-                yield data.tobytes()
-
-        return _stream
+        return self._get_h5_dataset(id, user, path, offset=scan_position, limit=1, format=format)
 
     def all_frames(self, id, user, type, limit=None, offset=None):
         path = self._get_path_to_type(type)
@@ -276,7 +266,7 @@ class StemImage(AccessControlledModel):
             raise RestException('Current assetstore is not a file system!')
         return assetstore
 
-    def _get_h5_dataset_bytes(self, id, user, path):
+    def _get_h5_dataset_bytes(self, id, user, path, offset=None, limit=None):
         """Get a dataset as bytes.
 
         Args:
@@ -293,12 +283,12 @@ class StemImage(AccessControlledModel):
             nonlocal user
             with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
-                for array in self._get_dataset_in_chunks(dataset):
+                for array in self._get_dataset_in_chunks(dataset, offset, limit):
                     yield array.tobytes()
 
         return _stream
 
-    def _get_h5_dataset_msgpack(self, id, user, path):
+    def _get_h5_dataset_msgpack(self, id, user, path, offset=None, limit=None):
         """Get a dataset packed with msgpack.
 
         Args:
@@ -315,7 +305,7 @@ class StemImage(AccessControlledModel):
             nonlocal user
             with self._open_h5py_file(id, user) as rf:
                 dataset = rf[path]
-                for array in self._get_dataset_in_chunks(dataset):
+                for array in self._get_dataset_in_chunks(dataset, offset, limit):
                     yield msgpack.packb(array.tolist(), use_bin_type=True)
 
         return _stream
@@ -359,11 +349,13 @@ class StemImage(AccessControlledModel):
 
         yield data
 
-    def _get_dataset_in_chunks(self, dataset, max_chunk_size=64000):
+    def _get_dataset_in_chunks(self, dataset, offset=None, limit=1e6, max_chunk_size=64000):
         """A generator to yield numpy arrays of the dataset.
 
         Args:
             dataset: An h5py dataset
+            limit: Limit the number of arrays to be obtained
+            offset: Offset arrays to be obtained
             max_chunk_size: The maximum size in bytes to be sent. This
                             will be used to determine how many arrays
                             to send. Note that it will always send at
@@ -371,31 +363,46 @@ class StemImage(AccessControlledModel):
                             the max.
         Yields: Arrays of the dataset
         """
-        approx_items_per_array = dataset.size / dataset.shape[0]
-        approx_size_per_array = approx_items_per_array * dataset.dtype.itemsize
+        num_arrays = min(limit, dataset.shape[0])
 
-        read_size = int(max_chunk_size // approx_size_per_array)
-        if read_size == 0:
-            read_size = 1
+        current_size = 0
+        start = 0
 
-        if read_size > dataset.shape[0]:
-            read_size = dataset.shape[0]
+        def is_ref_type(dataset):
+            return dataset.dtype.kind == 'O'
 
-        total_read = 0
-        while total_read != dataset.shape[0]:
-            if total_read + read_size > dataset.shape[0]:
-                read_size = dataset.shape[0] - total_read
+        def get_chunk_shape(start, stop, dataset):
+            if stop - start == 1:
+                # If the one dataset is a reference, follow the reference to get the shape
+                if is_ref_type(dataset):
+                    return dataset[start].shape
+                else:
+                    return dataset.shape[1:]
+            else:
+                return (stop - start,) + dataset.shape[1:]
+        
+        def get_chunk_data(start, stop, dataset):
+            if stop - start == 1 and is_ref_type(dataset):
+                return dataset[start]
+            
+            shape = get_chunk_shape(start, stop, dataset)
+            dtype = dataset.dtype
+            array = np.empty(shape, dtype=dtype)
+            dataset.read_direct(array, source_sel=np.s_[start:stop])
+            return array
 
-            shape = (read_size,) + dataset.shape[1:]
-            array = np.empty(shape, dtype=dataset.dtype)
+        for i in range(num_arrays):
+            array_size = dataset[offset + i].size * dataset.dtype.itemsize
+            if current_size != 0:
+                if current_size + array_size > max_chunk_size:
+                    yield get_chunk_data(offset + start, offset + i, dataset)
+                    current_size = 0
+                    start = i
 
-            start = total_read
-            end = start + read_size
+            current_size += array_size
 
-            dataset.read_direct(array, source_sel=np.s_[start:end])
-            total_read += read_size
-
-            yield array
+        stop = num_arrays
+        yield get_chunk_data(offset + start, offset + stop, dataset)
 
     def _get_path_to_type(self, type):
         """Get the path to the dataset for the given type"""
