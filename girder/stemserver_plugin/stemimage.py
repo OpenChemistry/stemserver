@@ -38,12 +38,11 @@ class StemImage(Resource):
     )
     def find(self, params):
         stem_images = self._model.find()
-
         # Filter based upon access level.
         user = getCurrentUser()
         return [self._clean(self._model.filter(x, user)) for x in stem_images]
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get the names of the available stem images.')
         .param('id', 'The id of the stem image.')
@@ -51,7 +50,7 @@ class StemImage(Resource):
     def image_names(self, id):
         return self._model.image_names(id, getCurrentUser())
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get a stem image.')
         .param('id', 'The id of the stem image.')
@@ -64,7 +63,7 @@ class StemImage(Resource):
     def image(self, id, format, name):
         return self._model.image(id, getCurrentUser(), format, name)
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get the shape of a stem image.')
         .param('id', 'The id of the stem image.')
@@ -73,7 +72,7 @@ class StemImage(Resource):
     def image_shape(self, id, name):
         return self._model.image_shape(id, getCurrentUser(), name)
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get a frame of an image.')
         .param('id', 'The id of the stem image.')
@@ -90,7 +89,7 @@ class StemImage(Resource):
     def frame(self, id, scanPosition, type, format):
         return self._model.frame(id, getCurrentUser(), int(scanPosition), type, format)
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get all frames of an image (msgpack format only).')
         .param('id', 'The id of the stem image.')
@@ -108,7 +107,7 @@ class StemImage(Resource):
         return self._model.all_frames(id, getCurrentUser(), type, limit,
                                       offset)
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get the detector dimensions of an image.')
         .param('id', 'The id of the stem image.')
@@ -119,7 +118,7 @@ class StemImage(Resource):
     def frame_shape(self, id, type):
         return self._model.frame_shape(id, getCurrentUser(), type)
 
-    @access.user
+    @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
         Description('Get the scan positions of an image.')
         .param('id', 'The id of the stem image.')
