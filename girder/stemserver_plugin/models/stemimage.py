@@ -59,7 +59,7 @@ class StemImage(AccessControlledModel):
                 raise RestException('Only admin users can use a filePath', 403)
 
             name = os.path.basename(file_path)
-            item = self._create_import_item(user, name)
+            item = self._create_import_item(user, name, public)
             assetstore = self._get_assetstore()
 
             adapter = FilesystemAssetstoreAdapter(assetstore)
@@ -80,6 +80,8 @@ class StemImage(AccessControlledModel):
         if not stem_image:
             raise RestException('StemImage not found.', 404)
 
+        public = stem_image.get('public', False)
+
         # Try to load the file and check if it was imported.
         # If it was imported, delete the item containing the file.
         # If loading/removing the file fails, remove the stem image anyways
@@ -89,7 +91,8 @@ class StemImage(AccessControlledModel):
             if f.get('imported', False) is True:
                 item = ItemModel().load(f['itemId'], level=AccessType.WRITE,
                                         user=user)
-                if item['folderId'] == self._get_import_folder(user)['_id']:
+                if item['folderId'] == self._get_import_folder(user,
+                                                               public)['_id']:
                     ItemModel().remove(item)
         except:
             pass
@@ -241,21 +244,31 @@ class StemImage(AccessControlledModel):
 
         raise RestException('In scan_positions, unknown type: ' + type)
 
-    def _get_import_folder(self, user):
+    def _get_import_folder(self, user, public=False):
         """Get the folder where files will be imported.
 
         If the folder does not exist, it will be created.
         """
-        return FolderModel().createFolder(user, StemImage.IMPORT_FOLDER,
-                                          parentType='user', public=False,
+        root_folder = FolderModel().createFolder(user, StemImage.IMPORT_FOLDER,
+                                                 parentType='user',
+                                                 public=False,
+                                                 creator=user,
+                                                 reuseExisting=True)
+
+        if public:
+            name = 'Public'
+        else:
+            name = 'Private'
+
+        return FolderModel().createFolder(root_folder, name, public=public,
                                           creator=user, reuseExisting=True)
 
-    def _create_import_item(self, user, name):
+    def _create_import_item(self, user, name, public=False):
         """Create a new item and put it in the import folder.
 
         The new item will be returned.
         """
-        folder = self._get_import_folder(user)
+        folder = self._get_import_folder(user, public)
 
         return ItemModel().createItem(name, user, folder)
 
@@ -380,11 +393,11 @@ class StemImage(AccessControlledModel):
                     return dataset.shape[1:]
             else:
                 return (stop - start,) + dataset.shape[1:]
-        
+
         def get_chunk_data(start, stop, dataset):
             if stop - start == 1 and is_ref_type(dataset):
                 return dataset[start]
-            
+
             shape = get_chunk_shape(start, stop, dataset)
             dtype = dataset.dtype
             array = np.empty(shape, dtype=dtype)
