@@ -1,0 +1,18 @@
+version: '2'
+services:
+  web-dhparams-setup:
+    image: centurylink/openssl
+    command: tail -f /dev/null
+    cap_drop:
+      - ALL
+    volumes:
+      - web-certs.stem:/etc/letsencrypt
+      - web-certbot-webroot.stem:/data/letsencrypt
+    
+volumes:
+  web-certs.stem:
+    external: true
+    driver: rancher-nfs
+  web-certbot-webroot.stem:
+    external: true
+    driver: rancher-nfs
