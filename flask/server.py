@@ -18,7 +18,6 @@ app.config.from_envvar('STEMSERVER_CONFIG', silent=True)
 if app.config['SECRET_KEY'] == 'dev':
     app.logger.warning('Using development SECRET_KEY, DO NOT use in production!!!')
 
-app.secret_key = os.environ.get('SECRET_KEY')
 login_manager = LoginManager()
 login_manager.init_app(app)
 socketio = SocketIO(app)
