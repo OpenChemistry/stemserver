@@ -37,10 +37,9 @@ class StemImage(Resource):
         Description('Get stem images')
     )
     def find(self, params):
-        stem_images = self._model.find()
-        # Filter based upon access level.
         user = getCurrentUser()
-        return [self._clean(self._model.filter(x, user)) for x in stem_images]
+        results = self._model.findWithPermissions(user=user)
+        return [self._clean(x) for x in results]
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

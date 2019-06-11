@@ -31,14 +31,6 @@ class StemImage(AccessControlledModel):
         self.ensureIndices(('fileId',))
         self.exposeFields(level=AccessType.READ, fields=('_id', 'fileId'))
 
-    def filter(self, stem_image, user):
-        stem_image = super(StemImage, self).filter(doc=stem_image, user=user)
-
-        del stem_image['_accessLevel']
-        del stem_image['_modelType']
-
-        return stem_image
-
     def validate(self, doc):
         # Ensure the file exists
         if 'fileId' in doc:
