@@ -8,4 +8,4 @@ RUN cd /server && pip install .
 
 WORKDIR /server
 
-ENTRYPOINT ["gunicorn", "--worker-class", "eventlet",  "-w",  "1",  "server:app", "-b", "127.0.0.1:5000"]
+ENTRYPOINT ["gunicorn", "--worker-class", "eventlet",  "-w",  "1",  "server:app", "-b", "0.0.0.0:5000"]
