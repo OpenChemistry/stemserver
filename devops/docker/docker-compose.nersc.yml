@@ -2,9 +2,11 @@ version: '2'
 services:
   app-flask:
     retain_ip: true
-
+  app-girder:
+    retain_ip: true
   web-nginx:
     image: openchemistry/stemserver-nginx-nersc:latest
+    retain_ip: true
     labels:
       io.rancher.container.pull_image: always
       cron.schedule: 0  8  *  *  *
