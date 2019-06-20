@@ -43,4 +43,4 @@ if __name__ == '__main__':
     logger = logging.getLogger('stemserver')
     logger.addHandler(handler)
 
-    socketio.run(app, host='localhost', log_output=True)
+    socketio.run(app, host='0.0.0.0', log_output=True)
