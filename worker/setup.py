@@ -15,6 +15,9 @@ setup(
     entry_points= {
         'console_scripts': [
             'stemworker=stemworker.cli:main'
+        ],
+        'stempy.pipeline': [
+            'annular = stemworker.pipelines.annular_mask:execute'
         ]
     }
 )
