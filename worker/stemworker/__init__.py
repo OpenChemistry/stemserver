@@ -1,13 +1,26 @@
-import aiohttp
+import asyncio
 import logging
 import sys
+import uuid
+import inspect
+import functools
 
+import aiohttp
 from stevedore import extension
 import coloredlogs
+import msgpack
+from mpi4py import MPI
 
 _pipelines = {}
+_pipeline_instances = {}
 
 logger = logging.getLogger('stemworker')
+
+def get_pipeline_instance(id):
+    return _pipeline_instances[id]
+
+def delete_pipeline_instance(id):
+    del _pipeline_instances[id]
 
 async def authenticate(url, girder_api_key):
     params = {
@@ -20,7 +33,6 @@ async def authenticate(url, girder_api_key):
     return resp.cookies['session'].output(header='')
 
 def load_pipelines():
-
     global _pipelines
     mgr = extension.ExtensionManager(
         namespace='stempy.pipeline',
@@ -42,10 +54,36 @@ def load_pipelines():
         msg = 'Registered pipeline: %s' % p.name
         if display_name is not None:
             msg = '%s - %s' % (msg, display_name)
-        logger.info('Registered pipeline: %s.' % msg)
+        logger.info(msg)
+
+def create_pipeline_instance(name):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    pipeline_id = None
+    if rank == 0:
+        pipeline_id = uuid.uuid4().hex
+
+    pipeline_id = comm.bcast(pipeline_id, root=0)
+
+    # Look up pipeline
+    if name not in _pipelines:
+        raise Exception('Unable to find pipeline: %s' % name)
+
+    pipeline = _pipelines[name]
+
+    if inspect.isclass(pipeline):
+        instance = pipeline()
+        pipeline = instance.execute
+
+    _pipeline_instances[pipeline_id] = pipeline
+
+    return pipeline_id
 
 async def run(url, girder_api_key):
+    from stemworker import socketio
 
+    global _pipelines
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
 
@@ -58,4 +96,14 @@ async def run(url, girder_api_key):
     logger.info('Loading pipelines.')
     load_pipelines()
 
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+
+    worker_id = None
+    if rank == 0:
+        worker_id = uuid.uuid4().hex
+
+    worker_id = comm.bcast(worker_id, root=0)
+
     cookie = await authenticate(url, girder_api_key)
+    await socketio.connect(_pipelines, worker_id, url, cookie)
