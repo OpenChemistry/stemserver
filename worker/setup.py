@@ -10,7 +10,10 @@ setup(
         'click',
         'aiohttp',
         'python-socketio[asyncio_client]',
-        'mpi4py'
+        'mpi4py',
+        'stevedore',
+        'coloredlogs',
+        'msgpack'
     ],
     entry_points= {
         'console_scripts': [
