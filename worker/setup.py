@@ -7,7 +7,10 @@ setup(
     description = 'STEM pipeline worker.',
     packages = find_packages(),
     install_requires = [
-        'click'
+        'click',
+        'aiohttp',
+        'python-socketio[asyncio_client]',
+        'mpi4py'
     ],
     entry_points= {
         'console_scripts': [
