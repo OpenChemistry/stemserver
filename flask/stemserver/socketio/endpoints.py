@@ -1,9 +1,11 @@
 import functools
+import logging
 
 from flask import session, request
 from flask_login import current_user
 from flask_socketio import SocketIO, emit, join_room, disconnect
 
+logger = logging.getLogger('stemserver')
 workers = {}
 
 def auth_required(f):
@@ -62,7 +64,7 @@ def init(socketio):
     @socketio.on('disconnect', namespace='/stem')
     @auth_required
     def disconnect():
-        print('Client disconnected')
+        logger.debug('Client disconnected')
         user_id = current_user.girder_user['_id']
         client_id = request.sid
         user_workers = workers.setdefault(user_id, set())
