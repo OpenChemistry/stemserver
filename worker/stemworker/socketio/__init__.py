@@ -27,7 +27,7 @@ async def connect(pipelines,  worker_id, url, cookie):
         }
         # If we are rank 0 then send the list of pipelines we support
         if rank == 0:
-            pipeline_definitions = []
+            pipeline_definitions = {}
 
             for (name, pipeline) in pipelines.items():
                 p = {
@@ -35,7 +35,7 @@ async def connect(pipelines,  worker_id, url, cookie):
                     'displayName': pipeline.NAME,
                     'description': pipeline.DESCRIPTION
                 }
-                pipeline_definitions.append(p)
+                pipeline_definitions[name] = p
 
             connect_data['pipelines'] =  pipeline_definitions
 
