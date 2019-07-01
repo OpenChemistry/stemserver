@@ -19,6 +19,7 @@ from flask_socketio import SocketIO, emit, join_room, disconnect
 #
 logger = logging.getLogger('stemserver')
 workers = {}
+client_workers_by_id = {}
 
 def auth_required(f):
     @functools.wraps(f)
@@ -102,6 +103,8 @@ def init(socketio):
 
         ranks[rank] = client_id
 
+        client_workers_by_id[client_id] = {'worker_id': worker_id, 'rank': rank}
+
         emit('stem.workers', user_workers, room=current_room())
 
     @socketio.on('stem.bright', namespace='/stem')
@@ -125,7 +128,13 @@ def init(socketio):
         logger.debug('Client disconnected')
         user_id = current_user.girder_user['_id']
         client_id = request.sid
-        user_workers = workers.setdefault(user_id, set())
-        if client_id in user_workers:
-            user_workers.remove(client_id)
-            emit('stem.workers', list(user_workers), room=current_room())
+        if client_id in client_workers_by_id:
+            worker_id = client_workers_by_id[client_id]['worker_id']
+            rank = client_workers_by_id[client_id]['rank']
+            del client_workers_by_id[client_id]
+            user_workers = workers.setdefault(user_id, {})
+            if worker_id in user_workers and rank in user_workers[worker_id]['ranks']:
+                del user_workers[worker_id]['ranks'][rank]
+                if len(user_workers[worker_id]['ranks']) == 0:
+                    del user_workers[worker_id]
+            emit('stem.workers', user_workers, room=current_room())
