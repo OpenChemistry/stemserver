@@ -1,4 +1,6 @@
 import logging
+import asyncio
+import functools
 
 from mpi4py import MPI
 import socketio
@@ -61,7 +63,11 @@ async def connect(pipelines,  worker_id, url, cookie):
         pipeline_id = params['pipelineId']
         pipeline = get_pipeline_instance(pipeline_id)
 
-        result = pipeline(**params['params'])
+        loop = asyncio.get_running_loop()
+        # Add the kwargs
+        pipeline = functools.partial(pipeline, **params['params'])
+        # Execute in thread pool
+        result = await loop.run_in_executor(None, pipeline)
 
         data = {
             'workerId': worker_id,
