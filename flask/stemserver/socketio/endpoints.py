@@ -59,8 +59,9 @@ def init(socketio):
     @auth_required
     def created(params):
         logger.debug('stem.pipeline.created: %s' % params)
-
-        emit('stem.pipeline.created', params, room=current_room(), include_self=False)
+        # We only emit the created to the id of the client
+        # that originated the create request ( held in the id field )
+        emit('stem.pipeline.created', params, room=params['id'], include_self=False)
 
     @socketio.on('stem.pipeline.execute', namespace='/stem')
     @auth_required
