@@ -35,7 +35,8 @@ async def connect(pipelines,  worker_id, url, cookie):
                 p = {
                     'name': name,
                     'displayName': pipeline.NAME,
-                    'description': pipeline.DESCRIPTION
+                    'description': pipeline.DESCRIPTION,
+                    'parameters': pipeline.PARAMETERS
                 }
                 pipeline_definitions[name] = p
 
