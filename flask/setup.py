@@ -10,6 +10,7 @@ setup(
         'flask-socketio',
         'eventlet',
         'flask_login',
-        'requests'
+        'requests',
+        'coloredlogs'
     ]
 )

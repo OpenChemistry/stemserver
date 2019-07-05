@@ -1,9 +1,10 @@
+import sys
+import logging
+
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_login import LoginManager, login_required, login_user
-
-import glob
-import os
+import coloredlogs
 
 from stemserver.girder.auth import fetch_girder_user_from_token, auth_blueprint
 from stemserver.socketio import endpoints as socketio_endpoints
@@ -33,4 +34,13 @@ def load_user(girder_token):
 socketio_endpoints.init(socketio)
 
 if __name__ == '__main__':
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = coloredlogs.ColoredFormatter('%(asctime)s,%(msecs)03d - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger = logging.getLogger('stemserver')
+    logger.addHandler(handler)
+
     socketio.run(app, host='0.0.0.0', log_output=True)
