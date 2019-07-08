@@ -20,11 +20,7 @@ def get_worker_files(path):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    files = glob.glob(path)
-    worker_files = []
-    for i in range(rank, len(files), world_size):
-        worker_files.append(files[i])
-    return worker_files
+    return glob.glob(path)[rank::world_size]
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
