@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import functools
+import glob
 from collections import OrderedDict
 
 from mpi4py import MPI
@@ -14,6 +15,16 @@ from stemworker import (
 )
 
 logger = logging.getLogger('stemworker')
+
+def get_worker_files(path):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
+    files = glob.glob(path)
+    worker_files = []
+    for i in range(rank, len(files), world_size):
+        worker_files.append(files[i])
+    return worker_files
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
@@ -66,10 +77,13 @@ async def connect(pipelines,  worker_id, url, cookie):
         logger.info('stem.pipeline.execute: %s' % params)
         pipeline_id = params['pipelineId']
         pipeline = get_pipeline_instance(pipeline_id)
+        files = get_worker_files(params['params']['path'])
+        if (len(files) == 0):
+            return
 
         loop = asyncio.get_running_loop()
         # Add the kwargs
-        pipeline = functools.partial(pipeline, **params['params'])
+        pipeline = functools.partial(pipeline, files, **params['params'])
         # Execute in thread pool
         result = await loop.run_in_executor(None, pipeline)
 
