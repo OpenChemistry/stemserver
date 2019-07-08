@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import functools
+from collections import OrderedDict
 
 from mpi4py import MPI
 import socketio
@@ -36,7 +37,7 @@ async def connect(pipelines,  worker_id, url, cookie):
                     'name': name,
                     'displayName': pipeline.NAME,
                     'description': pipeline.DESCRIPTION,
-                    'parameters': pipeline.PARAMETERS
+                    'parameters': OrderedDict([(k, pipeline.PARAMETERS[k]) for k in reversed(pipeline.PARAMETERS)])
                 }
                 pipeline_definitions[name] = p
 
