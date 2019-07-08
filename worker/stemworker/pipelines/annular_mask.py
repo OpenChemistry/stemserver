@@ -34,14 +34,9 @@ def execute(path=None, **params):
         files = files[offset:offset+files_per_rank]
 
     # Create local stem
-    reader = io.reader(files, version=params.get('version'))
+    reader = io.reader(files, version=int(params.get('version')))
 
-    b = reader.read()
-    width = b.header.scan_width
-    height = b.header.scan_height
-    reader.reset()
-
-    local_stem = image.create_stem_image(reader, int(inner_radius), int(outer_radius), width, height,
-                                         int(center_x), int(center_y))
+    local_stem = image.create_stem_image(reader, int(inner_radius), int(outer_radius),
+                                         center_x=int(center_x), center_y=int(center_y))
 
     return local_stem
