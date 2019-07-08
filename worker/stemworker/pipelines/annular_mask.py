@@ -6,9 +6,6 @@ from mpi4py import MPI
 
 from stempy.pipeline import pipeline, parameter
 
-width = 160
-height = 160
-
 @pipeline('Annular Mask', 'Creates STEM images using annular masks')
 @parameter('centerX', type='integer', label='Center X', default=-1)
 @parameter('centerY', type='integer', label='Center Y', default=-1)
@@ -36,7 +33,12 @@ def execute(path=None, **params):
         files = files[offset:offset+files_per_rank]
 
     # Create local stem
-    reader = io.reader(files, version=io.FileVersion.VERSION1)
+    reader = io.reader(files, version=io.FileVersion.VERSION3)
+
+    b = reader.read()
+    width = b.header.scan_width
+    height = b.header.scan_height
+    reader.reset()
 
     local_stem = image.create_stem_image(reader, int(inner_radius), int(outer_radius), width, height,
                                          int(center_x), int(center_y))
