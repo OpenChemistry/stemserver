@@ -11,6 +11,7 @@ from stempy.pipeline import pipeline, parameter
 @parameter('centerY', type='integer', label='Center Y', default=-1)
 @parameter('innerRadius', type='integer', label='Inner Radius', default=0)
 @parameter('outerRadius', type='integer', label='Outer Radius', default=0)
+@parameter('version', type='integer', label='File version', default=3)
 def execute(path=None, **params):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -33,7 +34,7 @@ def execute(path=None, **params):
         files = files[offset:offset+files_per_rank]
 
     # Create local stem
-    reader = io.reader(files, version=io.FileVersion.VERSION3)
+    reader = io.reader(files, version=params.get('version'))
 
     b = reader.read()
     width = b.header.scan_width
