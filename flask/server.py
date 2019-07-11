@@ -21,7 +21,7 @@ if app.config['SECRET_KEY'] == 'dev':
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_handlers=False)
 
 app.register_blueprint(auth_blueprint)
 
