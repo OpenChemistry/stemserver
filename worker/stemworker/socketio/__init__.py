@@ -112,4 +112,4 @@ async def connect(pipelines,  worker_id, url, cookie):
         'Cookie': cookie
     }
 
-    await client.connect(url, namespaces=['/stem'], transports=['polling'], headers=headers)
+    await client.connect(url, namespaces=['/stem'], transports=['websocket'], headers=headers)
