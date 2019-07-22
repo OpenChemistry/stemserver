@@ -8,7 +8,7 @@ setup(
     packages = find_packages(),
     install_requires = [
         'flask-socketio',
-        'eventlet',
+        'eventlet==0.21.0',
         'flask_login',
         'requests',
         'coloredlogs'
