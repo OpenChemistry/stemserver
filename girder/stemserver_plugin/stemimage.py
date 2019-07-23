@@ -23,6 +23,7 @@ class StemImage(Resource):
         self.route('GET', (':id', 'scanPositions'), self.scan_positions)
         self.route('POST', (), self.create)
         self.route('DELETE', (':id',), self.delete)
+        self.route('GET', (':id', 'path'), self.file_path)
 
         self._model = StemImageModel()
 
@@ -156,3 +157,11 @@ class StemImage(Resource):
     )
     def delete(self, id):
         return self._model.delete(id, self.getCurrentUser())
+
+    @access.user(scope=TokenScope.DATA_READ)
+    @autoDescribeRoute(
+        Description('Get absolute path of the image HDF5 file.')
+        .param('id', 'The id of the stem image.')
+    )
+    def file_path(self, id):
+        return self._model.file_path(id, getCurrentUser())
