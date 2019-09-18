@@ -20,6 +20,7 @@ class StemImage(Resource):
         self.route('GET', (':id', 'names'), self.image_names)
         self.route('GET', (':id', ':name'), self.image)
         self.route('GET', (':id', ':name', 'shape'), self.image_shape)
+        self.route('GET', (':id', 'frames', 'types'), self.frames_types)
         self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
         self.route('GET', (':id', 'frames'), self.all_frames)
         self.route('GET', (':id', 'frames', 'shape'), self.frame_shape)
@@ -57,6 +58,15 @@ class StemImage(Resource):
             raise RestException('StemImage not found.', 404)
 
         return self._clean(stem_image)
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get an array of the frame types available in this dataset')
+        .param('id', 'The id of the stem image.')
+    )
+    def frames_types(self, id):
+        user = getCurrentUser()
+        return self._model.frames_types(id, user)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(
