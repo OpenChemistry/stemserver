@@ -2,8 +2,10 @@ from girder.api import access
 from girder.api.describe import Description, autoDescribeRoute
 from girder.api.rest import Resource
 from girder.api.rest import getCurrentUser
+from girder.api.rest import RestException
 
 from girder.constants import TokenScope
+from girder.constants import AccessType
 
 from .models.stemimage import StemImage as StemImageModel
 
@@ -14,9 +16,11 @@ class StemImage(Resource):
         super(StemImage, self).__init__()
         self.resourceName = 'stem_images'
         self.route('GET', (), self.find)
+        self.route('GET', (':id',), self.get)
         self.route('GET', (':id', 'names'), self.image_names)
         self.route('GET', (':id', ':name'), self.image)
         self.route('GET', (':id', ':name', 'shape'), self.image_shape)
+        self.route('GET', (':id', 'frames', 'types'), self.frames_types)
         self.route('GET', (':id', 'frames', ':scanPosition'), self.frame)
         self.route('GET', (':id', 'frames'), self.all_frames)
         self.route('GET', (':id', 'frames', 'shape'), self.frame_shape)
@@ -40,6 +44,29 @@ class StemImage(Resource):
         user = getCurrentUser()
         results = self._model.findWithPermissions(user=user)
         return [self._clean(x) for x in results]
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get stem image')
+        .param('id', 'The id of the stem image.')
+    )
+    def get(self, id):
+        user = getCurrentUser()
+        stem_image = self._model.load(id, user=user, level=AccessType.READ)
+
+        if not stem_image:
+            raise RestException('StemImage not found.', 404)
+
+        return self._clean(stem_image)
+
+    @access.public
+    @autoDescribeRoute(
+        Description('Get an array of the frame types available in this dataset')
+        .param('id', 'The id of the stem image.')
+    )
+    def frames_types(self, id):
+        user = getCurrentUser()
+        return self._model.frames_types(id, user)
 
     @access.public(scope=TokenScope.DATA_READ)
     @autoDescribeRoute(

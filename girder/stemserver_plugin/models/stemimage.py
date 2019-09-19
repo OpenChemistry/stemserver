@@ -169,6 +169,20 @@ class StemImage(AccessControlledModel):
 
             return dataset[index].shape
 
+    def frames_types(self, id, user):
+        types = []
+
+        with self._open_h5py_file(id, user) as rf:
+            for type in ['electron', 'raw']:
+                path = self._get_path_to_type(type)
+                try:
+                    if rf[path].shape[0] > 0:
+                        types.append(type)
+                except KeyError:
+                    pass
+
+        return types
+
     def frame(self, id, user, scan_position, type, format):
         path = self._get_path_to_type(type)
 
