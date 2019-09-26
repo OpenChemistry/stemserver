@@ -250,6 +250,15 @@ class StemImage(AccessControlledModel):
 
         raise RestException('In scan_positions, unknown type: ' + type)
 
+    def file_path(self, id, user):
+        stem_image = self.load(id, user=user, level=AccessType.READ)
+        file = FileModel().load(stem_image['fileId'], user=user, level=AccessType.READ)
+        assetstore = AssetstoreModel().load(file['assetstoreId'])
+        if assetstore['type'] is not AssetstoreType.FILESYSTEM:
+            raise RestException('The file assetstore is not a file system!')
+        path = os.path.join(assetstore['root'], file['path'])
+        return {'path': path}
+
     def _get_import_folder(self, user, public=False):
         """Get the folder where files will be imported.
 

@@ -1,9 +1,12 @@
 import functools
 import logging
+import requests
 
-from flask import session, request
+from flask import session, request, current_app
 from flask_login import current_user
 from flask_socketio import SocketIO, emit, join_room, disconnect
+
+from .constants import FileFormat
 
 #
 # This variable keeps track of the workers associated with each client. It is
@@ -32,6 +35,14 @@ def auth_required(f):
 
 def current_room():
     return current_user.girder_user['login']
+
+def fetch_hdf5_path(image_id):
+    girder_token = current_user.id
+    headers = {
+        'Girder-Token': girder_token
+    }
+    r = requests.get('%s/stem_images/%s/path' % (current_app.config['GIRDER_API_URL'], image_id), headers=headers)
+    return r.json()['path']
 
 def init(socketio):
     @socketio.on('connect', namespace='/stem')
@@ -70,6 +81,14 @@ def init(socketio):
 
         user_id = current_user.girder_user['_id']
         worker_id = params['workerId']
+        image_id = params.setdefault('params', {}).get('imageId')
+        if image_id is not None:
+            path = fetch_hdf5_path(image_id)
+            params['params']['path'] = path
+            params['params']['format'] = FileFormat.H5
+        else:
+            params['params']['format'] = FileFormat.Dat
+
         # Send to all worker ranks
         for sid in workers[user_id][worker_id]['ranks'].values():
             emit('stem.pipeline.execute', params, room=sid, include_self=False)

@@ -7,6 +7,7 @@ from collections import OrderedDict
 from mpi4py import MPI
 import socketio
 import msgpack
+import h5py
 
 from stemworker import (
     create_pipeline_instance,
@@ -14,13 +15,27 @@ from stemworker import (
     delete_pipeline_instance
 )
 
+from .constants import FileFormat
+
+from stempy import io
+
 logger = logging.getLogger('stemworker')
 
-def get_worker_files(path):
+def get_worker_reader(path, version):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     world_size = comm.Get_size()
-    return glob.glob(path)[rank::world_size]
+    files = glob.glob(path)[rank::world_size]
+    if (len(files) == 0):
+        return None
+    return io.reader(files, version=int(version))
+
+def get_worker_h5_reader(path):
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    if rank > 0:
+        return None
+    return h5py.File(path, 'r')
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
@@ -73,15 +88,27 @@ async def connect(pipelines,  worker_id, url, cookie):
         logger.info('stem.pipeline.execute: %s' % params)
         pipeline_id = params['pipelineId']
         pipeline = get_pipeline_instance(pipeline_id)
-        files = get_worker_files(params['params']['path'])
-        if (len(files) == 0):
+
+        file_format = params['params'].get('format')
+        path = params['params'].get('path')
+        version = params['params'].get('version', 3)
+        reader = None
+        if file_format == FileFormat.Dat:
+            reader = get_worker_reader(path, version)
+        elif file_format == FileFormat.H5:
+            reader = get_worker_h5_reader(path)
+
+        if reader is None:
             return
 
         loop = asyncio.get_running_loop()
         # Add the kwargs
-        pipeline = functools.partial(pipeline, files, **params['params'])
+        pipeline = functools.partial(pipeline, reader, **params['params'])
         # Execute in thread pool
         result = await loop.run_in_executor(None, pipeline)
+
+        if isinstance(reader, h5py.File):
+            reader.close()
 
         data = {
             'workerId': worker_id,
