@@ -6,6 +6,8 @@ from flask import session, request, current_app
 from flask_login import current_user
 from flask_socketio import SocketIO, emit, join_room, disconnect
 
+from .constants import FileFormat
+
 #
 # This variable keeps track of the workers associated with each client. It is
 # structued as follows:
@@ -82,7 +84,10 @@ def init(socketio):
         image_id = params.setdefault('params', {}).get('imageId')
         if image_id is not None:
             path = fetch_hdf5_path(image_id)
-            params['params']['path_hdf5'] = path
+            params['params']['path'] = path
+            params['params']['format'] = FileFormat.H5
+        else:
+            params['params']['format'] = FileFormat.Dat
 
         # Send to all worker ranks
         for sid in workers[user_id][worker_id]['ranks'].values():

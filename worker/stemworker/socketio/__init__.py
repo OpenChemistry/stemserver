@@ -15,6 +15,8 @@ from stemworker import (
     delete_pipeline_instance
 )
 
+from .constants import FileFormat
+
 from stempy import io
 
 logger = logging.getLogger('stemworker')
@@ -28,12 +30,12 @@ def get_worker_reader(path, version):
         return None
     return io.reader(files, version=int(version))
 
-def get_worker_h5_reader(path_hdf5):
+def get_worker_h5_reader(path):
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     if rank > 0:
         return None
-    return h5py.File(path_hdf5, 'r')
+    return h5py.File(path, 'r')
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
@@ -87,14 +89,14 @@ async def connect(pipelines,  worker_id, url, cookie):
         pipeline_id = params['pipelineId']
         pipeline = get_pipeline_instance(pipeline_id)
 
-        path_hdf5 = params['params'].get('path_hdf5')
+        file_format = params['params'].get('format')
         path = params['params'].get('path')
         version = params['params'].get('version', 3)
         reader = None
-        if path:
+        if file_format == FileFormat.Dat:
             reader = get_worker_reader(path, version)
-        elif path_hdf5:
-            reader = get_worker_h5_reader(path_hdf5)
+        elif file_format == FileFormat.H5:
+            reader = get_worker_h5_reader(path)
 
         if reader is None:
             return
