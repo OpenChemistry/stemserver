@@ -105,6 +105,9 @@ async def connect(pipelines,  worker_id, url, cookie):
         # Execute in thread pool
         result = await loop.run_in_executor(None, pipeline)
 
+        if isinstance(reader, h5py.File):
+            reader.close()
+
         data = {
             'workerId': worker_id,
             'rank': rank,
