@@ -72,13 +72,15 @@ async def connect(pipelines,  worker_id, url, cookie):
     async def on_create(params):
         logger.info('stem.pipeline.create: %s' % params)
         worker_id = params['workerId']
-        pipeline_id = create_pipeline_instance(params['name'])
+        name = params['name']
+        pipeline_id = create_pipeline_instance(name)
         comm.barrier()
 
         if rank == 0:
             await client.emit('stem.pipeline.created', namespace='/stem', data={
                 # Include the id so we know who to send the message to.
                 'id': params['id'],
+                'name': name,
                 'workerId': worker_id,
                 'pipelineId': pipeline_id
             })
