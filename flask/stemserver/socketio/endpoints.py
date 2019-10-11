@@ -99,6 +99,12 @@ def init(socketio):
         logger.debug('stem.pipeline.executed.')
         emit('stem.pipeline.executed', params, room=current_room(), include_self=False)
 
+    @socketio.on('stem.pipeline.completed', namespace='/stem')
+    @auth_required
+    def completed(params):
+        logger.debug('stem.pipeline.completed.')
+        emit('stem.pipeline.completed', params, room=current_room(), include_self=False)
+
     @socketio.on('stem.pipeline.delete', namespace='/stem')
     @auth_required
     def delete(params):
