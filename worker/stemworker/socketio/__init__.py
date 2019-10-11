@@ -32,10 +32,10 @@ def get_worker_reader(path, version):
 
 def get_worker_h5_reader(path):
     comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    if rank > 0:
-        return None
-    return h5py.File(path, 'r')
+    if comm.Get_size() > 1:
+        return h5py.File(path, 'r', driver='mpio', comm=comm)
+    else:
+        return h5py.File(path, 'r')
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
@@ -100,27 +100,34 @@ async def connect(pipelines,  worker_id, url, cookie):
         elif file_format == FileFormat.H5:
             reader = get_worker_h5_reader(path)
 
-        if reader is None:
-            return
+        if reader is not None:
+            loop = asyncio.get_running_loop()
+            # Add the kwargs
+            pipeline = functools.partial(pipeline, reader, **params['params'])
+            # Execute in thread pool
+            result = await loop.run_in_executor(None, pipeline)
 
-        loop = asyncio.get_running_loop()
-        # Add the kwargs
-        pipeline = functools.partial(pipeline, reader, **params['params'])
-        # Execute in thread pool
-        result = await loop.run_in_executor(None, pipeline)
+            if isinstance(reader, h5py.File):
+                reader.close()
 
-        if isinstance(reader, h5py.File):
-            reader.close()
+            data = {
+                'workerId': worker_id,
+                'rank': rank,
+                'pipelineId': pipeline_id,
+                'result': result.tolist()
+            }
+            data = msgpack.packb(data, use_bin_type=True)
 
-        data = {
-            'workerId': worker_id,
-            'rank': rank,
-            'pipelineId': pipeline_id,
-            'result': result.tolist()
-        }
-        data = msgpack.packb(data, use_bin_type=True)
+            await client.emit('stem.pipeline.executed', namespace='/stem', data=data)
 
-        await client.emit('stem.pipeline.executed', namespace='/stem', data=data)
+        comm.Barrier()
+        if rank == 0:
+            data = {
+                'workerId': worker_id,
+                'rank': rank,
+                'pipelineId': pipeline_id,
+            }
+            await client.emit('stem.pipeline.completed', namespace='/stem', data=data)
 
     @client.on('stem.pipeline.delete', namespace='/stem')
     async def on_delete(params):

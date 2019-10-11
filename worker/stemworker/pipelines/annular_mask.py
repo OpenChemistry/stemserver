@@ -1,6 +1,7 @@
 from stempy import image
 from stempy.pipeline import pipeline, parameter
 import h5py
+from mpi4py import MPI
 
 @pipeline('Annular Mask', 'Creates STEM images using annular masks')
 @parameter('centerX', type='integer', label='Center X', default=-1)
@@ -17,7 +18,18 @@ def execute(reader, **params):
     if (isinstance(reader, h5py.File)):
         frames_path = '/electron_events/frames'
         scans_path = '/electron_events/scan_positions'
-        data = reader[frames_path][()]
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        world_size = comm.Get_size()
+        n_frames = len(reader[frames_path])
+        frames_per_rank = n_frames // world_size
+        offset = rank * frames_per_rank
+        if (rank == world_size - 1):
+            size = n_frames - offset
+        else:
+            size = frames_per_rank
+
+        data = reader[frames_path][offset:offset+size]
         frame_width = reader[frames_path].attrs['Nx']
         frame_height = reader[frames_path].attrs['Ny']
         width = reader[scans_path].attrs['Nx']
@@ -25,7 +37,7 @@ def execute(reader, **params):
         local_stem = image.create_stem_image_sparse(data, int(inner_radius), int(outer_radius),
                                                     frame_width=frame_width, frame_height=frame_height,
                                                     width=width, height=height,
-                                                    center_x=int(center_x), center_y=int(center_y))
+                                                    center_x=int(center_x), center_y=int(center_y), frame_offset=offset)
     else:
         local_stem = image.create_stem_image(reader, int(inner_radius), int(outer_radius),
                                              center_x=int(center_x), center_y=int(center_y))
