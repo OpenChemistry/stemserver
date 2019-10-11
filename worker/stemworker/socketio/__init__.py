@@ -32,7 +32,10 @@ def get_worker_reader(path, version):
 
 def get_worker_h5_reader(path):
     comm = MPI.COMM_WORLD
-    return h5py.File(path, 'r', driver='mpio', comm=comm)
+    if comm.Get_size() > 1:
+        return h5py.File(path, 'r', driver='mpio', comm=comm)
+    else:
+        return h5py.File(path, 'r')
 
 async def connect(pipelines,  worker_id, url, cookie):
     comm = MPI.COMM_WORLD
