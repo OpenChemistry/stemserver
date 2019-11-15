@@ -3,7 +3,7 @@ from stempy.pipeline import pipeline, parameter, PipelineIO, PipelineAggregation
 import h5py
 from mpi4py import MPI
 
-@pipeline('Annular Mask', 'Creates STEM images using annular masks', PipelineIO.Frame, PipelineIO.Image, PipelineAggregation.Sum)
+@pipeline('Annular Mask', 'Creates STEM images using annular masks', PipelineIO.FRAME, PipelineIO.IMAGE, PipelineAggregation.SUM)
 @parameter('centerX', type='integer', label='Center X', default=-1)
 @parameter('centerY', type='integer', label='Center Y', default=-1)
 @parameter('innerRadius', type='integer', label='Inner Radius', default=0)
