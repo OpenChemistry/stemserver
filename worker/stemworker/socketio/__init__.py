@@ -12,7 +12,8 @@ import h5py
 from stemworker import (
     create_pipeline_instance,
     get_pipeline_instance,
-    delete_pipeline_instance
+    delete_pipeline_instance,
+    get_pipeline_info
 )
 
 from .constants import FileFormat
@@ -54,14 +55,8 @@ async def connect(pipelines,  worker_id, url, cookie):
         if rank == 0:
             pipeline_definitions = {}
 
-            for (name, pipeline) in pipelines.items():
-                p = {
-                    'name': name,
-                    'displayName': pipeline.NAME,
-                    'description': pipeline.DESCRIPTION,
-                    'parameters': OrderedDict([(k, pipeline.PARAMETERS[k]) for k in reversed(pipeline.PARAMETERS)])
-                }
-                pipeline_definitions[name] = p
+            for name in pipelines:
+                pipeline_definitions[name] = get_pipeline_info(name, pipelines)
 
             connect_data['pipelines'] =  pipeline_definitions
 
@@ -77,12 +72,14 @@ async def connect(pipelines,  worker_id, url, cookie):
         comm.barrier()
 
         if rank == 0:
+            info = get_pipeline_info(name, pipelines)
             await client.emit('stem.pipeline.created', namespace='/stem', data={
                 # Include the id so we know who to send the message to.
                 'id': params['id'],
                 'name': name,
                 'workerId': worker_id,
-                'pipelineId': pipeline_id
+                'pipelineId': pipeline_id,
+                'info': info
             })
 
     @client.on('stem.pipeline.execute', namespace='/stem')
@@ -90,6 +87,9 @@ async def connect(pipelines,  worker_id, url, cookie):
         logger.info('stem.pipeline.execute: %s' % params)
         pipeline_id = params['pipelineId']
         pipeline = get_pipeline_instance(pipeline_id)
+        name = pipeline['name']
+        executor = pipeline['executor']
+        info = get_pipeline_info(name, pipelines)
 
         file_format = params['params'].get('format')
         path = params['params'].get('path')
@@ -103,9 +103,9 @@ async def connect(pipelines,  worker_id, url, cookie):
         if reader is not None:
             loop = asyncio.get_running_loop()
             # Add the kwargs
-            pipeline = functools.partial(pipeline, reader, **params['params'])
+            executor = functools.partial(executor, reader, **params['params'])
             # Execute in thread pool
-            result = await loop.run_in_executor(None, pipeline)
+            result = await loop.run_in_executor(None, executor)
 
             if isinstance(reader, h5py.File):
                 reader.close()
@@ -114,7 +114,8 @@ async def connect(pipelines,  worker_id, url, cookie):
                 'workerId': worker_id,
                 'rank': rank,
                 'pipelineId': pipeline_id,
-                'result': result.tolist()
+                'result': result.tolist(),
+                'info': info
             }
             data = msgpack.packb(data, use_bin_type=True)
 
@@ -126,6 +127,7 @@ async def connect(pipelines,  worker_id, url, cookie):
                 'workerId': worker_id,
                 'rank': rank,
                 'pipelineId': pipeline_id,
+                'info': info
             }
             await client.emit('stem.pipeline.completed', namespace='/stem', data=data)
 

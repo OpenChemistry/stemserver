@@ -4,6 +4,7 @@ import sys
 import uuid
 import inspect
 import functools
+from collections import OrderedDict
 
 import aiohttp
 from stevedore import extension
@@ -76,9 +77,26 @@ def create_pipeline_instance(name):
         instance = pipeline()
         pipeline = instance.execute
 
-    _pipeline_instances[pipeline_id] = pipeline
+    _pipeline_instances[pipeline_id] = {
+        'name': name,
+        'executor': pipeline
+    }
 
     return pipeline_id
+
+def get_pipeline_info(name, pipelines):
+    pipeline = pipelines.get(name)
+    if pipeline is None:
+        raise Exception('Unable to find pipeline: %s' % name)
+    return {
+        'name': name,
+        'displayName': pipeline.NAME,
+        'description': pipeline.DESCRIPTION,
+        'parameters': OrderedDict([(k, pipeline.PARAMETERS[k]) for k in reversed(pipeline.PARAMETERS)]),
+        'input': pipeline.INPUT,
+        'output': pipeline.OUTPUT,
+        'aggregation': pipeline.AGGREGATION
+    }
 
 async def run(url, girder_api_key):
     from stemworker import socketio
