@@ -20,7 +20,8 @@ setup(
             'stemworker=stemworker.cli:main'
         ],
         'stempy.pipeline': [
-            'annular = stemworker.pipelines.annular_mask:execute'
+            'annular = stemworker.pipelines.annular_mask:execute',
+            'maximum_diffraction = stemworker.pipelines.maximum_diffraction:execute'
         ]
     }
 )
